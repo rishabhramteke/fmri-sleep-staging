@@ -493,3 +493,25 @@ Note: if accepted, ISBI requires in-person presentation in Lausanne and conferen
 ## UPDATE 2026-10-19 (later): venue confirmed
 Title 1 kept. Venue: ISBI 2027 (not ISMRM 2027, whose 28 Oct abstract deadline overlaps ISBI's no-concurrent-review
 rule). Accepted ISBI papers must be presented in person in Lausanne, else withdrawn from the proceedings.
+
+## UPDATE 2026-10-19 (evening): cold review of draft 16 -> draft 17
+Review: dreams/review_cold_2026-10-19_draft16.md (4 MUST-FIX, 20 optional). Draft 17
+(dreams/paper_v2_draft17_2026-10-19.pdf = paper_isbi/main_v2_draft17.tex):
+- M1: abstract's +0.126 had no support in the paper -> Table 2 restores "Stronger non-BOLD, LR / trees / BiGRU"
+  (+0.118 / +0.126 / +0.061; REM inside delta in all) and relabels "Stronger + eye block"; both are now in the
+  specification envelope (43 -> 45; 27_verify_v2.py updated). Abstract gives own pipelines +0.009 to +0.050
+  (new macros ownNthreeMin/Max with a guard that N3 > REM in every own-pipeline analysis).
+- M2: robustness sentence now names the 12 exceptions (late fusion, trees, nested tuning, stacking with added
+  blocks; guard on the labels) and the 6 CI-above-zero rows (trees and such stacking).
+- M3: 1 h-bin AUC defined in Methods; Results sentence split; Discussion "consistent with being shared".
+- M4: regional level defined (200 parcels; 215 with the structures).
+- Optional: subcortical 50 = 15 + 35; minimal pipeline lacks the visual network; per-epoch kappa named; pilot
+  described (minimal pipeline, earlier features, same data, not independent); tone times not distributed;
+  transitions (not awakenings) counted; AP numbers; WM/CSF from the derivative; 24P not plotted; run-wise band-pass;
+  AUC/HMM/FC/tSNR expanded; AUC-vs-F1 reconciliation sentence; Ozbay 2019 restored; URL no longer breaks at a hyphen;
+  REM night-2 wording; "led by the brainstem" dropped.
+- Cuts to stay at 4 pages: estimator hyperparameters (in the code), posterior-smoothness numbers, RETROICOR R2
+  values, REM-AUC ladder clause, pairwise REM CIs, kappa-difference CI, coverage clause, network list, frey2021,
+  "non-superiority" keyword; Table 1 \scriptsize; figure 1.95 in.
+4 pages (right column of p. 4 has < 1 line spare), 0 overfull, 27_verify_v2.py 360 checks ALL PASS.
+submission_form.txt updated (abstract, keywords).

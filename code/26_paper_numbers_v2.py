@@ -682,10 +682,10 @@ def main():
             (f"BOLD ({ma['n_bold_features']})", "bold", "bold"),
             ("Non-BOLD + BOLD", "nonbold+bold", "nonbold+bold")]
     best = max(L[k]["kappa"] for _, k, _ in rows)
-    out = ["\\begin{table}[t]", "\\centering", "\\footnotesize", "\\setlength{\\tabcolsep}{1.4pt}",
+    out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.6pt}",
            "\\caption{Five-class staging (derivative, leave-one-subject-out, one HMM decoder for all models). AUC: "
            "within-subject, one-vs-rest, per-epoch; last row, in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
-           f"{M['nEpochs']} epochs, {M['nSubj']} subjects.}}",
+           "}",
            "\\label{tab:ladder}", "\\begin{tabular}{@{}lcccc@{}}", "\\toprule",
            " & \\multicolumn{2}{c}{after HMM} & \\multicolumn{2}{c}{before HMM: AUC} \\\\",
            "\\cmidrule(lr){2-3}\\cmidrule(l){4-5}",
@@ -790,14 +790,24 @@ def main():
         rob.append(("\\quad LR, nested-tuned", tuned("lr", "max"), "spec"))
     if tuned("hgb", "max"):
         rob.append(("\\quad trees, nested-tuned", tuned("hgb", "max"), "spec"))
-    if "gru" in SP:
-        rob.append(("Stronger non-BOLD, BiGRU", SP["gru"]["gain"], "strong"))
+    for fam, lab in (("lr", "Stronger non-BOLD, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
+        if fam in SP:
+            rob.append((lab, SP[fam]["gain"], "strong"))
     CV = json.load(open(BASE / "results_panel_checks2.json"))["conserv"]
-    for fam, lab in (("lr", "\\quad $+$ eye block, LR"), ("hgb", "\\quad\\quad boosted trees"), ("gru", "\\quad\\quad BiGRU")):
+    for fam, lab in (("lr", "Stronger $+$ eye block, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
         rob.append((lab, CV[fam]["gain"], "strong"))
     # the four baseline comparisons (physiology, time, both, second half) are given in the text, not the table
     rob += [(f"Minimal pipeline, {mw['n_subjects']} subjects", inc_w["nonbold+bold - nonbold"], "own"),
             ("\\quad boosted trees", W["hgb"]["increment"], "own")]
+    # abstract: "OWNMIN to OWNMAX in our own pipelines": every own-pipeline N3 gain (Fig. 1c levels incl. motion
+    # regression and FC, the 16-subject minimal pipeline with LR and trees), each above its REM gain
+    own_all = [MT["increment"][k] for k in ("raw84amp", "rv84amp", "rv84phys", "rv84mot", "raw")] + \
+              [inc_w["nonbold+bold - nonbold"], W["hgb"]["increment"]]
+    assert all(r["N3"]["ws_mean"] > r["REM"]["ws_mean"] for r in own_all)
+    M["ownNthreeMin"] = sg(min(r["N3"]["ws_mean"] for r in own_all))
+    M["ownNthreeMax"] = sg(max(r["N3"]["ws_mean"] for r in own_all))
+    # text: "REM staying inside the margin in all six" stronger-baseline rows
+    assert all(r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r, g in rob if g == "strong")
 
     def ctr(inc):
         if inc.get("N3") is None:
@@ -835,16 +845,22 @@ def main():
     assert ma["n_bold_features"] + 10 + BLK["subc"]["n_features"] + BLK["mw"]["n_features"] + int(M["nLvAll"]) == int(M["nAllBoldFeat"])
     M["nSpecNthreeCiPos"] = str(sum(r["N3"]["ws_ci"][0] > 0 for _, r in spec))
     M["nSpecRemDagger"] = str(sum(r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r in spec))
+    # text: "the N exceptions use late fusion, boosted trees, nested tuning or stacking with added blocks"
+    out_ = [lab for lab, r in spec if not (r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"])]
+    M["nSpecRemOut"] = str(len(out_))
+    assert len(out_) + int(M["nSpecRemDagger"]) == len(spec)
+    assert all(any(k in lab for k in ("late fusion", "Late fusion", "trees", "nested-tuned")) or lab == "\\quad stacked"
+               for lab in out_), out_
     print("  specification rows below every-subject N3>REM:", [(lab, c) for (lab, r), c in zip(spec, cts) if c[0] < c[1]])
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.4pt}",
            "\\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "
            "above zero. $^\\dagger$: both one-sided 95\\% upper bounds (bootstrap, $t$) below "
-           f"$\\delta={ma['delta']:.2f}$. N3$>$REM: subjects with the larger N3 gain. All rows but the last two: the "
-           f"{len(spec)} specifications; gain claims (Wilcoxon, Holm) concern the main row only. $^\\ddagger$Global "
-           "signal regressed or in both models, aCompCor, $+$6\\,s shift, within-run z-scores, slow physiology "
-           "regressed, detrending, image-derived motion, night fraction or index, cross-night training, uncensored "
-           "epochs, best-aligned or non-drifting runs, 1 or 5\\,min around awakenings removed, lagged physiology, no "
-           "somatomotor network, $C=0.01, 0.1, 10$.}",
+           f"$\\delta={ma['delta']:.2f}$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the "
+           f"{len(spec)} specifications; tests (Wilcoxon, Holm) concern the main row only. $^\\ddagger$Global "
+           "signal regressed or added, aCompCor, $+$6\\,s shift, within-run z, slow physiology regressed, detrending, "
+           "image-based motion, night fraction or index, cross-night training, uncensored epochs, best-aligned or "
+           "non-drifting runs, 1 or 5\\,min around awakenings removed, lagged physiology, no somatomotor network, "
+           "$C=0.01$--10.}",
            "\\label{tab:robust}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
            "Variant & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ & \\begin{tabular}{@{}c@{}}N3$>$\\\\REM\\end{tabular} \\\\", "\\midrule"]
 

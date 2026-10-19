@@ -98,7 +98,7 @@ def redact_log(text):
         line = re.sub(r": \d/5( weak accept)?\.", ".", line)
         line = re.sub(r" \(4/3/4 -> meta 4 conditional\)", "", line)
         line = re.sub(r": 4/4/3, meta 4 conditional\.", ".", line)
-        line = re.sub(r" = \d \((weak accept|high borderline)\)", "", line)
+        line = re.sub(r" = \d \([^)]*(accept|reject|borderline)[^)]*\)", "", line)
         line = re.sub(r" = 4 / 4 / 4( \(stable\))?", "", line)
         line = re.sub(r" \(all weak accept\)", "", line)
         line = line.replace("; Fable", "")

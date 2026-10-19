@@ -355,7 +355,7 @@ def main():
         if (BASE / f"results_tuned_{mdl}_{sset}.json").exists():
             rows.append(L(f"results_tuned_{mdl}_{sset}.json")["gain"])
     if (BASE / "results_strong_physio.json").exists():
-        rows += [L("results_strong_physio.json")["models"]["gru"]["gain"]]
+        rows += [L("results_strong_physio.json")["models"][f]["gain"] for f in ("lr", "hgb", "gru")]
     P1_, P2_ = L("results_panel_checks.json"), L("results_panel_checks2.json")
     rows += [P1_["tones5"]["gain"], P1_["lagged"]["gain"], P2_["noaud"]["gain"]]
     rows += [P2_["conserv"][f]["gain"] for f in ("lr", "hgb", "gru")]
