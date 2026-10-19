@@ -587,6 +587,45 @@ def main():
         v = {k: BLK["mw"]["gain"][f"{k}: block beyond cortical BOLD"]["REM"]["ws_mean"] for k in ("early", "late", "stack")}
         assert min(v, key=v.get) == "early" and max(v, key=v.get) == "late", v
 
+    # ---------------- preprocessing ladder (49_preproc_ladder.py): our pipeline rebuilt step by step towards the derivative
+    LD_TAGS = {"rv84amp": "RvAmp", "rv84phys": "RvPhys", "afni84": "Afni"}
+    for v, vt in (("aff", "Aff"), ("aff_gm", "Gm"), ("syn", "Syn"), ("syn_gm", "SynGm")):
+        for rg, rt in (("", ""), ("_acc", "Acc"), ("_accmot", "AccMot"), ("_accmotphys", "All")):
+            LD_TAGS[f"amp_{v}{rg}"] = vt + rt
+    if (BASE / "results_preproc_ladder.json").exists():
+        LD = json.load(open(BASE / "results_preproc_ladder.json"))
+        M["ldN"] = f"{LD['meta']['n_epochs']:,}"
+        for key, tag in LD_TAGS.items():
+            for st in ("N3", "REM"):
+                r = LD["increment"][key][st]
+                M[f"ldInc{tag}{SN[st]}"], M[f"ldInc{tag}{SN[st]}ci"] = sg(r["ws_mean"]), ci(r["ws_ci"])
+                M[f"ldInc{tag}{SN[st]}Subj"], M[f"ldInc{tag}{SN[st]}SubjN"] = str(r["n_pos"]), str(r["n_subj"])
+                M[f"ldAuc{tag}{SN[st]}"] = f3(LD["auc_ws"][key][st])
+        own = {k: LD["increment"][k]["N3"]["ws_mean"] for k in LD_TAGS if k.startswith("amp_")}
+        M["ldOwnNthreeMin"], M["ldOwnNthreeMax"] = sg(min(own.values())), sg(max(own.values()))
+        M["ldOwnAucNthreeMin"] = f3(min(LD["auc_ws"][k]["N3"] for k in own)); M["ldOwnAucNthreeMax"] = f3(max(LD["auc_ws"][k]["N3"] for k in own))
+        M["ldOwnRemMax"] = sg(max(LD["increment"][k]["REM"]["ws_mean"] for k in own))
+        M["ldOwnRemMaxUpT"] = sg(max(tbound(LD["increment"][k]["REM"]) for k in own))
+        M["ldBestKey"] = max(own, key=own.get).replace("amp_", "").replace("_", "\\_")
+        # mean effect of each rebuilt step on the N3 gain and on the BOLD-alone N3 AUC, over the other factors:
+        # alignment = syn vs aff at equal GM restriction and regression; purity = _gm vs plain at equal alignment and regression
+        def pairs_for(step_name):
+            if step_name == "Syn":
+                return [(a, a.replace("syn", "aff")) for a in own if "syn" in a]
+            return [(a, a.replace("_gm", "")) for a in own if "_gm" in a]
+        for name in ("Syn", "Gm"):
+            pairs = pairs_for(name)
+            assert all(b in own for _, b in pairs), pairs
+            M[f"ldStep{name}Inc"] = sg(np.mean([own[a] - own[b] for a, b in pairs]))
+            M[f"ldStep{name}Auc"] = sg(np.mean([LD["auc_ws"][a]["N3"] - LD["auc_ws"][b]["N3"] for a, b in pairs]))
+        for rg, name in (("_acc", "Acc"), ("_accmot", "AccMot"), ("_accmotphys", "All")):
+            pairs = [(k, k.replace(rg, "")) for k in own if k.endswith(rg)]
+            M[f"ldStep{name}Inc"] = sg(np.mean([own[a] - own[b] for a, b in pairs]))
+            M[f"ldStep{name}Auc"] = sg(np.mean([LD["auc_ws"][a]["N3"] - LD["auc_ws"][b]["N3"] for a, b in pairs]))
+        M["ldGapInc"] = sg(LD["increment"]["afni84"]["N3"]["ws_mean"] - LD["increment"]["amp_aff"]["N3"]["ws_mean"])
+        M["ldGapAuc"] = sg(LD["auc_ws"]["afni84"]["N3"] - LD["auc_ws"]["amp_aff"]["N3"])
+        M["ldClosedPct"] = f"{100 * (max(own.values()) - own['amp_aff']) / (LD['increment']['afni84']['N3']['ws_mean'] - own['amp_aff']):.0f}"
+        assert all(LD["increment"][k]["N3"]["ws_mean"] > LD["increment"][k]["REM"]["ws_mean"] for k in LD_TAGS), "ladder: N3 gain above REM gain on every rung"
     # ---------------- matched epochs (28_matched.py): only the BOLD source differs
     MT = json.load(open(BASE / "results_matched.json"))
     M["mtN"] = f"{MT['meta']['n_epochs']:,}"
@@ -683,8 +722,8 @@ def main():
             ("Non-BOLD + BOLD", "nonbold+bold", "nonbold+bold")]
     best = max(L[k]["kappa"] for _, k, _ in rows)
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.6pt}",
-           "\\caption{Five-class staging (derivative, leave-one-subject-out, one HMM decoder for all models). AUC: "
-           "within-subject, one-vs-rest, per-epoch; last row, in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
+           "\\caption{Five-class staging (derivative, leave-one-subject-out, one HMM decoder). AUC: within-subject "
+           "one-vs-rest per epoch; last row, in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
            "}",
            "\\label{tab:ladder}", "\\begin{tabular}{@{}lcccc@{}}", "\\toprule",
            " & \\multicolumn{2}{c}{after HMM} & \\multicolumn{2}{c}{before HMM: AUC} \\\\",
@@ -796,6 +835,58 @@ def main():
     CV = json.load(open(BASE / "results_panel_checks2.json"))["conserv"]
     for fam, lab in (("lr", "Stronger $+$ eye block, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
         rob.append((lab, CV[fam]["gain"], "strong"))
+    # learned representations of each epoch's 90 s parcel series (53_learned_encoder.py, 54_ssl_pretrain.py), the
+    # paper's readout on both; the encoder row compares two networks of the same design (as the BiGRU rows do)
+    LE = json.load(open(BASE / "results_learned_encoder.json"))
+    LX = json.load(open(BASE / "results_learned_encoder_extra.json"))
+    SSL = json.load(open(BASE / "results_ssl_probe.json"))
+    g_le, g_ssl = LE["gain_nb+enc_over_nb"], SSL["gain"]["nb+emb - nb"]["per_stage"]
+    rob += [("Temporal CNN encoder, joint network", g_le, "learned"),
+            ("Self-supervised embedding, LR", g_ssl, "learned")]
+    for tag, r in (("le", g_le), ("ssl", g_ssl)):
+        for st in ("N3", "REM"):
+            M[f"{tag}{SN[st]}"], M[f"{tag}{SN[st]}ci"] = sg(r[st]["ws_mean"]), ci(r[st]["ws_ci"])
+            M[f"{tag}{SN[st]}up"], M[f"{tag}{SN[st]}upT"] = sg(r[st]["ws_upper95"]), sg(tbound(r[st]))
+            M[f"{tag}{SN[st]}Subj"], M[f"{tag}{SN[st]}SubjN"] = str(r[st]["n_pos"]), str(r[st]["n_subj"])
+    for st in STAGES:
+        M[f"leAuc{SN[st]}"], M[f"sslAuc{SN[st]}"] = f3(LE["auc_ws"]["enc"][st]), f3(SSL["auc_ws"]["emb"][st])
+    lx_lr, lx_late = LX["gain"]["nb+enc_nn - nb_lr"]["per_stage"], LX["gain"]["late(nb_lr,enc) - nb_lr"]["per_stage"]
+    for tag, r in (("leLr", lx_lr), ("leLate", lx_late)):
+        for st in ("N3", "REM"):
+            M[f"{tag}{SN[st]}"], M[f"{tag}{SN[st]}ci"] = sg(r[st]["ws_mean"]), ci(r[st]["ws_ci"])
+    for st in ("N3", "REM"):
+        M[f"leStrat{SN[st]}"] = sg(LX["stratified_1h"]["nb+enc_nn - nb_nn"][st]["mean"])
+        M[f"leLateStrat{SN[st]}"] = sg(LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"][st]["mean"])
+        M[f"sslBeyond{SN[st]}"] = sg(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_mean"])
+        M[f"sslBeyond{SN[st]}ci"] = ci(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_ci"])
+    # text: "learned representations add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
+    lrn = [g_le, g_ssl, lx_lr, lx_late]
+    M["lrnRemMin"], M["lrnRemMax"] = sg(min(r["REM"]["ws_mean"] for r in lrn)), sg(max(r["REM"]["ws_mean"] for r in lrn))
+    M["lrnNthreeMin"], M["lrnNthreeMax"] = sg(min(r["N3"]["ws_mean"] for r in lrn)), sg(max(r["N3"]["ws_mean"] for r in lrn))
+    assert all(r["N3"]["ws_mean"] > 3 * r["REM"]["ws_mean"] for r in lrn), "text: N3 gain at least three times the REM gain for every learned representation"
+    assert min(LE["auc_ws"]["enc"]["REM"], SSL["auc_ws"]["emb"]["REM"]) > A["auc_ws"]["bold"]["REM"]["mean"] + 0.08, "text: learned representations detect REM from BOLD alone far better than epoch features"
+    k2_ = lambda x: f"{x:.2f}"
+    # leakage checks on the encoder: the censoring pattern alone (mask_only) and without the 14 orbitofrontal parcels
+    LM = json.load(open(BASE / "results_learned_encoder_mask_only.json")); LO = json.load(open(BASE / "results_learned_encoder_no_orbitofrontal.json"))
+    M["leMaskAucREM"], M["leNoOfcAucREM"] = f3(LM["auc_ws"]["enc"]["REM"]), f3(LO["auc_ws"]["enc"]["REM"])
+    M["leNoOfcREM"], M["nOfcDropped"] = sg(LO["gain_nb+enc_over_nb"]["REM"]["ws_mean"]), str(len(LO["meta"]["dropped_parcels"]))
+    assert LM["auc_ws"]["enc"]["REM"] < 0.6 and LM["gain_nb+enc_over_nb"]["REM"]["ws_mean"] < 0.015, "text: the censoring pattern alone carries no REM information"
+    assert abs(LO["gain_nb+enc_over_nb"]["REM"]["ws_mean"] - g_le["REM"]["ws_mean"]) < 0.01 and abs(LO["auc_ws"]["enc"]["REM"] - LE["auc_ws"]["enc"]["REM"]) < 0.01, \
+        "text: the encoder's REM information does not depend on the orbitofrontal parcels"
+    M["kkEnc"], M["kkEmb"] = k2_(LE["hmm"]["enc"]["kappa"]), k2_(SSL["hmm"]["emb"]["kappa"])
+    M["kkNbEnc"], M["kkNbEmb"] = k2_(LE["hmm"]["nb+enc"]["kappa"]), k2_(SSL["hmm"]["nb+emb"]["kappa"])
+    sw = np.load(BASE / "ssl_windows.npz", allow_pickle=True)
+    M["nSslWindows"], M["nSslRuns"] = f"{len(sw['subj']):,}", str(len(np.unique(sw["run"])))
+    M["nSslHours"] = f"{len(sw['subj']) * 5 * 3 / 3600:.0f}"
+    # text: richer estimators reach at most kkRichMax; the self-supervised embedding kkEmb; tempering does not remove the drop
+    SU = json.load(open(BASE / "results_stager_upgrades.json")); TH = json.load(open(BASE / "results_tempered_hmm.json"))
+    rich = {k: v["hmm"]["1.0"]["kappa"] for k, v in SU.items() if k != "meta" and "hmm" in v and k not in ("strong:lr_nb", "strong:gru_nb")}
+    rich["temporal CNN encoder"] = LE["hmm"]["enc"]["kappa"]
+    M["kkRichMax"], M["nKappaVariants"] = k2_(max(rich.values())), str(len(rich))
+    assert SSL["hmm"]["emb"]["kappa"] > max(rich.values()) and SSL["hmm"]["emb"]["kappa"] < 0.5
+    td = TH["paired"]["nonbold+bold vs bold"]
+    M["kdTemperedAllBold"], M["kdTemperedAllBoldci"] = sg(td["diff"]), ci(td["ci"])
+    assert td["ci"][1] < 0, "text: tempering the emissions does not remove the kappa drop"
     # the four baseline comparisons (physiology, time, both, second half) are given in the text, not the table
     rob += [(f"Minimal pipeline, {mw['n_subjects']} subjects", inc_w["nonbold+bold - nonbold"], "own"),
             ("\\quad boosted trees", W["hgb"]["increment"], "own")]
@@ -823,7 +914,7 @@ def main():
     # time (the range row expanded into its variants)
     spec = []
     for lab, r, g in rob:
-        if g in ("spec", "strong"):
+        if g in ("spec", "strong", "learned"):
             spec += [(v_lab, v_r) for v_lab, v_r in variants] if r == "RANGE" else [(lab, r)]
     M["nSpec"] = str(len(spec))
     rem_v = [r["REM"]["ws_mean"] for _, r in spec]; n3_v = [r["N3"]["ws_mean"] for _, r in spec]
@@ -838,7 +929,7 @@ def main():
     M["nSpecRemCiPos"] = str(sum(r["REM"]["ws_ci"][0] > 0 for _, r in spec))
     # text: "In N of them, all with stacking, trees or the sequence model, the REM gain's CI lies above zero"
     flex = [lab for lab, r in spec if r["REM"]["ws_ci"][0] > 0]
-    assert all(any(k in lab for k in ("stacked", "trees")) for lab in flex), flex
+    assert all(any(k in lab for k in ("stacked", "trees", "encoder", "embedding")) for lab in flex), flex
     # abstract: "below the N3 gain in all N specifications"
     assert all(r["N3"]["ws_mean"] > r["REM"]["ws_mean"] for _, r in spec)
     M["nLvAll"] = str(BLK["max"]["n_features"] - BLK["subc"]["n_features"] - BLK["mw"]["n_features"] - 10)
@@ -849,18 +940,18 @@ def main():
     out_ = [lab for lab, r in spec if not (r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"])]
     M["nSpecRemOut"] = str(len(out_))
     assert len(out_) + int(M["nSpecRemDagger"]) == len(spec)
-    assert all(any(k in lab for k in ("late fusion", "Late fusion", "trees", "nested-tuned")) or lab == "\\quad stacked"
+    assert all(any(k in lab for k in ("late fusion", "Late fusion", "trees", "nested-tuned", "encoder", "embedding")) or lab == "\\quad stacked"
                for lab in out_), out_
+    M["nSpecRemOutLearned"] = str(sum(any(k in lab for k in ("encoder", "embedding")) for lab in out_))
     print("  specification rows below every-subject N3>REM:", [(lab, c) for (lab, r), c in zip(spec, cts) if c[0] < c[1]])
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.4pt}",
            "\\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "
            "above zero. $^\\dagger$: both one-sided 95\\% upper bounds (bootstrap, $t$) below "
            f"$\\delta={ma['delta']:.2f}$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the "
-           f"{len(spec)} specifications; tests (Wilcoxon, Holm) concern the main row only. $^\\ddagger$Global "
-           "signal regressed or added, aCompCor, $+$6\\,s shift, within-run z, slow physiology regressed, detrending, "
-           "image-based motion, night fraction or index, cross-night training, uncensored epochs, best-aligned or "
-           "non-drifting runs, 1 or 5\\,min around awakenings removed, lagged physiology, no somatomotor network, "
-           "$C=0.01$--10.}",
+           f"{len(spec)} specifications; tests concern the main row only. $^\\ddagger$Global "
+           "signal regressed/added, aCompCor, $+$6\\,s shift, within-run z, slow physiology regressed, detrending, "
+           "image-based motion, night fraction/index, cross-night training, uncensored epochs, best-aligned/non-drifting "
+           "runs, 1 or 5\\,min around awakenings removed, lagged physiology, no somatomotor network, $C$ 0.01--10.}",
            "\\label{tab:robust}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
            "Variant & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ & \\begin{tabular}{@{}c@{}}N3$>$\\\\REM\\end{tabular} \\\\", "\\midrule"]
 

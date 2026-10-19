@@ -38,7 +38,7 @@ def main():
     A = json.load(open(BASE / "results_v2_afni.json"))
     Rw = json.load(open(BASE / "results_v2_raw.json"))
     MT = json.load(open(BASE / "results_matched.json"))
-    fig, (ax, bx, cx, brain) = plt.subplots(1, 4, figsize=(7.0, 1.95), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92, 0.66]))
+    fig, (ax, bx, cx, brain) = plt.subplots(1, 4, figsize=(7.0, 1.60), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92, 0.66]))
     ys = list(range(len(STAGES)))[::-1]
     auc = A["auc_ws"]
 

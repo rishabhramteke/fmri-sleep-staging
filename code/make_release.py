@@ -33,7 +33,8 @@ CODE = ["03_fetch_sleep_scoring.py", "06_preprocess.py", "06b_raw_v2.py", "07_fe
         "35_stacked.py", "36_subcortex.py", "36b_extra_block.py", "36c_subcortex_followup.py", "36d_max_hgb.py",
         "37_reviewer_checks.py", "38_tuning.py", "39_strong_physio.py", "40_derivative_physio_r2.py", "41_rv2_eyes.py",
         "42_round2_checks.py", "43_eog_phasic.py", "44_tone_proxy.py", "45_round4_checks.py", "46_panel_checks.py",
-        "47_panel_checks2.py", "48_panel_checks3.py", "make_release.py"]
+        "47_panel_checks2.py", "48_panel_checks3.py", "49_preproc_ladder.py", "50_tempered_hmm.py", "51_stager_upgrades.py",
+        "52_cross_dataset.py", "53_learned_encoder.py", "53b_encoder_checks.py", "54_ssl_pretrain.py", "make_release.py"]
 PAPER = ["numbers.tex", "tab_ladder.tex", "tab_robust.tex", "figures/fig_gain_v2.pdf"]
 
 README = """# Whole-night fMRI sleep staging: BOLD adds to deep sleep, little to REM

@@ -2,7 +2,7 @@
 \centering
 \scriptsize
 \setlength{\tabcolsep}{2.4pt}
-\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\% subject-bootstrap CI]. Bold: CI above zero. $^\dagger$: both one-sided 95\% upper bounds (bootstrap, $t$) below $\delta=0.03$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the 45 specifications; tests (Wilcoxon, Holm) concern the main row only. $^\ddagger$Global signal regressed or added, aCompCor, $+$6\,s shift, within-run z, slow physiology regressed, detrending, image-based motion, night fraction or index, cross-night training, uncensored epochs, best-aligned or non-drifting runs, 1 or 5\,min around awakenings removed, lagged physiology, no somatomotor network, $C=0.01$--10.}
+\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\% subject-bootstrap CI]. Bold: CI above zero. $^\dagger$: both one-sided 95\% upper bounds (bootstrap, $t$) below $\delta=0.03$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the 47 specifications; tests concern the main row only. $^\ddagger$Global signal regressed/added, aCompCor, $+$6\,s shift, within-run z, slow physiology regressed, detrending, image-based motion, night fraction/index, cross-night training, uncensored epochs, best-aligned/non-drifting runs, 1 or 5\,min around awakenings removed, lagged physiology, no somatomotor network, $C$ 0.01--10.}
 \label{tab:robust}
 \begin{tabular}{@{}lccc@{}}
 \toprule
@@ -37,6 +37,9 @@ Stronger non-BOLD, LR & \textbf{0.12} & $-$0.007 [$-$0.027, 0.014]$^\dagger$ & 1
 Stronger $+$ eye block, LR & \textbf{0.08} & $-$0.011 [$-$0.027, 0.004]$^\dagger$ & 10/10 \\
 \quad boosted trees & \textbf{0.08} & 0.004 [$-$0.005, 0.016]$^\dagger$ & 10/10 \\
 \quad BiGRU & \textbf{0.07} & $-$0.029 [$-$0.061, 0.003]$^\dagger$ & 10/10 \\
+\midrule
+Temporal CNN encoder, joint network & \textbf{0.15} & \textbf{0.048} [0.028, 0.070] & 10/10 \\
+Self-supervised embedding, LR & \textbf{0.17} & \textbf{0.018} [0.003, 0.035] & 10/10 \\
 \midrule
 Minimal pipeline, 16 subjects & 0.04 & $-$0.030 [$-$0.069, 0.005]$^\dagger$ & 10/10 \\
 \quad boosted trees & \textbf{0.05} & \textbf{0.024} [0.007, 0.044] & 8/10 \\

@@ -359,6 +359,40 @@ def main():
     P1_, P2_ = L("results_panel_checks.json"), L("results_panel_checks2.json")
     rows += [P1_["tones5"]["gain"], P1_["lagged"]["gain"], P2_["noaud"]["gain"]]
     rows += [P2_["conserv"][f]["gain"] for f in ("lr", "hgb", "gru")]
+    # draft 18: learned representations (53_learned_encoder.py, 54_ssl_pretrain.py), recomputed from their predictions
+    LE_, SSL_ = L("results_learned_encoder.json"), L("results_ssl_probe.json")
+    rows += [LE_["gain_nb+enc_over_nb"], SSL_["gain"]["nb+emb - nb"]["per_stage"]]
+    for fname, pa_k, pb_k, tag, alone in (("predictions_learned_encoder.npz", "proba__nb+enc", "proba__nb", "le", "proba__enc"),
+                                          ("predictions_ssl_probe.npz", "proba__nb+emb", "proba__nb", "ssl", "proba__emb")):
+        LP = np.load(BASE / fname, allow_pickle=True)
+        assert (LP["y"] == y).all() and (LP["subj"] == s).all(), fname
+        for st in ("N3", "REM"):
+            d_ = np.array(list(gain(LP[pa_k], LP[pb_k], st).values()))
+            check(f"{tag}{SN[st]}", d_.mean(), num(M[f"{tag}{SN[st]}"]), 6e-4)
+            check(f"{tag}{SN[st]}Subj", (d_ > 0).sum(), num(M[f"{tag}{SN[st]}Subj"]), 0)
+            check(f"{tag}{SN[st]}upT", tup(dict(enumerate(d_))), num(M[f"{tag}{SN[st]}upT"]), 6e-4)
+        for st in STAGES:
+            check(f"{tag}Auc{SN[st]}", np.mean(list(ws(y, LP[alone], s, st, STAGES.index(st)).values())), num(M[f"{tag}Auc{SN[st]}"]), 6e-4)
+        for hk, mk in (("hmm__emb", "kkEmb"), ("hmm__nb+emb", "kkNbEmb")):
+            if hk in LP.files:
+                check(mk, cohen_kappa_score(y, LP[hk]), num(M[mk]), 5.1e-3)
+    for fname, mk in (("predictions_learned_encoder_mask_only.npz", "leMaskAucREM"), ("predictions_learned_encoder_no_orbitofrontal.npz", "leNoOfcAucREM")):
+        LP = np.load(BASE / fname, allow_pickle=True)
+        assert (LP["y"] == y).all()
+        check(mk, np.mean(list(ws(y, LP["proba__enc"], s, "REM", 4).values())), num(M[mk]), 6e-4)
+    LP = np.load(BASE / "predictions_learned_encoder_no_orbitofrontal.npz", allow_pickle=True)
+    check("leNoOfcREM", np.mean(list(gain(LP["proba__nb+enc"], LP["proba__nb"], "REM").values())), num(M["leNoOfcREM"]), 6e-4)
+    # draft 18: preprocessing ladder, recomputed from its predictions (identical non-BOLD model on the matched epochs)
+    if (BASE / "predictions_preproc_ladder.npz").exists():
+        LPd = np.load(BASE / "predictions_preproc_ladder.npz", allow_pickle=True)
+        yl, sl = LPd["y"], LPd["subj"]
+        check("ldN", len(yl), num(M["ldN"]), 0)
+        for key, tag in (("rv84amp", "RvAmp"), ("afni84", "Afni"), ("amp_aff", "Aff"), ("amp_syn_gm_accmotphys", "SynGmAll"), ("amp_aff_gm", "Gm")):
+            for st in ("N3", "REM"):
+                j = STAGES.index(st)
+                Aw_, Bw_ = ws(yl, LPd["proba__nonbold+" + key], sl, st, j), ws(yl, LPd["proba__nonbold"], sl, st, j)
+                check(f"ldInc{tag}{SN[st]}", np.mean([Aw_[u] - Bw_[u] for u in Aw_]), num(M[f"ldInc{tag}{SN[st]}"]), 6e-4)
+                check(f"ldAuc{tag}{SN[st]}", np.mean(list(ws(yl, LPd["proba__" + key], sl, st, j).values())), num(M[f"ldAuc{tag}{SN[st]}"]), 6e-4)
     check("nSpec", len(rows), num(M["nSpec"]), 0)
     check("envRemMin", min(r["REM"]["ws_mean"] for r in rows), num(M["envRemMin"]), 6e-4)
     check("envRemMax", max(r["REM"]["ws_mean"] for r in rows), num(M["envRemMax"]), 6e-4)

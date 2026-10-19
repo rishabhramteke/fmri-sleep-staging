@@ -515,3 +515,65 @@ Review: dreams/review_cold_2026-10-19_draft16.md (4 MUST-FIX, 20 optional). Draf
   "non-superiority" keyword; Table 1 \scriptsize; figure 1.95 in.
 4 pages (right column of p. 4 has < 1 line spare), 0 overfull, 27_verify_v2.py 360 checks ALL PASS.
 submission_form.txt updated (abstract, keywords).
+
+## UPDATE 2026-10-19 (night): experiments against the remaining weaknesses
+Launched: 49_preproc_ladder.py (which derivative step
+cleans the N3 amplitude signal: SyN alignment, grey-matter restriction, tissue/motion/physio regression, on the
+matched epochs; clue: BOLD-alone N3 AUC 0.654 ours vs 0.836 derivative on identical parcels and epochs),
+52_cross_dataset.py (ds005127-trained BOLD stager applied to ds003768 Penn State naps, W/N1/N2). Done:
+50_tempered_hmm.py (nested emission exponent does not repair the kappa drop: fused minus BOLD-alone -0.047
+[-0.079, -0.014], 3/12), 51_stager_upgrades.py (kappa 0.40-0.46 in 15 of 17 BOLD-containing variants at tau 1, two stacking variants lower; best 0.459). Paper
+untouched tonight (still draft 17); integration planned for draft 18.
+Cross-site result (21:30): ds005127-trained BOLD stager on ds003768 naps (30 subjects, 5,502 epochs, W/N1/N2):
+kappa 0.059 [0.023, 0.097], AUC W 0.60 N1 0.53 N2 0.63; within-ds003768 LOSO with the same features 0.07 (argmax) /
+0.10 (HMM), bold+time 0.09 / 0.12. Weak everywhere: naps from the minimal pipeline are near floor; 40% of nap epochs
+are called N3/REM (within-subject z-scoring assumes a whole night). At most one honest Limitations clause.
+
+## 2026-10-19 (late): two learned-representation experiments, at the author's request
+- 53_learned_encoder.py (running): a small temporal CNN on the raw 90 s parcel series of each epoch (201 x 30 input,
+  LOSO, early stopping on two training subjects, 3 seeds), as one more estimator row: does a LEARNED BOLD
+  representation change the N3 / REM gains over the non-BOLD model? Answers the reviewer's "feature design may be the
+  bottleneck for REM". Readout: the paper's within-subject AUC gain, N3 - REM contrast, HMM kappa.
+- 54_ssl_pretrain.py (code ready; to be launched when the GPU is free): JEPA-style self-supervised pretraining on the
+  whole-night derivative corpus (185 runs, ~145 h, 90 s windows, stride 5 -> ~34k windows): frame tokens, 4-layer
+  transformer, EMA target encoder, predictor, cross-time block masking alternating with cross-parcel masking, smooth-L1
+  in latent space. Then a frozen linear probe with the paper's LR readout: nb+emb vs nb, nb+bold+emb vs nb+bold, emb
+  alone, HMM kappa. Rationale: no sleep-fMRI foundation model exists; whole-night data is the natural pretraining
+  corpus for brain-state dynamics (cf. Brain-JEPA, BrainLM on UK Biobank awake rest). Pretraining is label-free but
+  transductive over subjects by default; --exclude-subject gives a strict per-fold check. Follow-up material unless it
+  finishes and is clear-cut before 26 Oct; it is not needed for the ISBI paper's claims.
+
+## 2026-10-20 (01:40): overnight results
+- Learned encoder (53): enc alone AUC W 0.856 N1 0.733 N2 0.797 N3 0.953 REM 0.867; nb+enc - nb N3 +0.152 [+0.122,
+  +0.179] 12/12, REM +0.048 [+0.028, +0.070] 10/10 (vs the LR non-BOLD baseline +0.017 [-0.028, +0.056]; late fusion
+  +0.052 [+0.024, +0.080]); N3-REM +0.107 10/10; within 1 h bins REM +0.062. Leakage checks clean: censoring pattern
+  alone REM AUC 0.526 (gain +0.010); without the 14 orbitofrontal parcels REM AUC 0.863, gain +0.052. HMM kappa enc
+  0.459, nb+enc 0.448.
+- Self-supervised JEPA-style pretraining (54): 80 epochs -> frozen embedding AUC W 0.863 N1 0.740 N2 0.812 N3 0.953
+  REM 0.864; nb+emb - nb N3 +0.172 [+0.131, +0.217] 12/12, REM +0.018 [+0.003, +0.035] upper 0.032; beyond the
+  hand-crafted features +0.027 N3 / +0.011 REM; HMM kappa emb 0.478 (highest of all stagers), nb+emb 0.451.
+  Undertraining check (300-epoch run, checkpoints every 50, each probed): the probe is flat from epoch 100 on (emb REM
+  AUC 0.866-0.876, N3 gain +0.176 to +0.180, REM gain +0.018 to +0.026, kappa 0.467-0.476); loss keeps falling
+  (0.118 -> 0.053) and the embedding spread shrinks (0.23 -> 0.14) without collapse. 80 epochs was enough; the paper
+  uses the 80-epoch run.
+- Paper (draft 18 in progress): two Table 2 rows (temporal CNN encoder; self-supervised embedding) -> 47
+  specifications, REM envelope -0.031 to +0.048, 14 exceptions (2 learned), CI above zero in 8; Methods describes both
+  representations; Results give enc/emb REM AUC vs 0.760, the leakage numbers, the +0.017 to +0.052 REM and +0.152 to
+  +0.180 N3 gains; kappa clause (18 richer variants <= 0.46, embedding 0.48, tempering does not remove the drop).
+  4 pages, 0 overfull, 27_verify_v2.py 385 checks ALL PASS. Still to add: the preprocessing-ladder result (gains
+  rerun 01:40 without the *_tis variants, whose k-means tissue class emptied shared parcels in most runs).
+
+## 2026-10-20 (02:30): draft 18 complete
+Preprocessing ladder (49, 12,694 matched epochs, identical non-BOLD model): our realigned pipeline (affine atlas) BOLD-
+alone N3 AUC 0.660, gain -0.007; adding WM/CSF regressors 0.699 / +0.013, + 24 motion parameters 0.734 / +0.032,
++ RETROICOR and slow physiology 0.764 / +0.044 (9/11); derivative on the same parcels 0.851 / +0.085. Nonlinear (SyN)
+registration changes the N3 gain by +0.001 on average (it raises BOLD-alone REM AUC from 0.47 to 0.69, without any REM
+gain over non-BOLD), grey-matter restriction by -0.003. So nuisance regression accounts for about 55% of the
+derivative's N3 advantage; the rest (slice-wise RETROICOR within AFNI, the undocumented 3dTproject matrix, 2 mm
+resampling) was not rebuilt. REM gain <= +0.004 on every rung. The *_tis (EPI intensity class) variants were dropped
+(they emptied shared parcels). Paper: Results sentence + Discussion sentence replaced ("is open" -> "about half is
+nuisance regression; half unattributed").
+Draft 18: dreams/paper_v2_draft18_2026-10-20.pdf, paper_isbi/main_v2_draft18.tex. 4 pages, 0 overfull, 0 underfull
+(spconf's \section penalty of -300 had been breaking the last column early; set to +150 in the preamble, headings
+unchanged), 406 checks ALL PASS, fonts embedded. Figure 1 height 1.95 -> 1.60 in. submission_form.txt abstract updated
+(161 words, 47 specifications, REM -0.031 to +0.048 "learned representations included").
