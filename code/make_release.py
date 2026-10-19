@@ -89,7 +89,7 @@ def redact_log(text):
     """The public copy of next_steps.md: no local paths, no unrelated analysis, no internal review scores."""
     out = []
     for line in text.splitlines():
-        if re.search(r"personality|Fallback after|Reviews so far|^Loop stopped|^licence; \$200|^Open user decisions|^Open \(user's"
+        if re.search(r"personality|Fallback after|^User decisions:|^dated log public; will read|Reviews so far|^Loop stopped|^licence; \$200|^Open user decisions|^Open \(user's"
                      r"|^dropped\), EDAS|^verifiable\), EDAS|^309", line):
             continue
         line = line.replace(VENV, "<venv>").replace("/Users/rishabh.ramteke/Documents/sleep_mri", ".")
@@ -102,6 +102,8 @@ def redact_log(text):
         line = re.sub(r" = 4 / 4 / 4( \(stable\))?", "", line)
         line = re.sub(r" \(all weak accept\)", "", line)
         line = line.replace("; Fable", "")
+        line = re.sub(r"\buser's (call|decision)", r"author's \1", line).replace("the user must", "the author must")
+        line = line.replace("(user decision)", "(author's decision)")
         line = re.sub(r" \(\d/\d/\d\)", "", line)
         line = re.sub(r" \(\d(, weak reject|; clarity \d)\)", "", line)
         out.append(line)

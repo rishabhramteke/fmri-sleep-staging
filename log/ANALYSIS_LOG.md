@@ -30,8 +30,8 @@ Pipeline for the paper (all reproducible, ~1.5 h total):
 (writes paper_isbi/numbers.tex + tab_ladder.tex; no hand-typed numbers) -> `17_figures.py` ->
 `latexmk -pdf main.tex` in paper_isbi -> `18_verify_paper.py` (independent recomputation, must pass).
 
-Still to do before submission: the user must register on EDAS and submit; decide on a bioRxiv/arXiv
-preprint and a public code release (both outward-facing, user's call); the novelty re-search report is
+Still to do before submission: the author must register on EDAS and submit; decide on a bioRxiv/arXiv
+preprint and a public code release (both outward-facing, author's call); the novelty re-search report is
 `dreams/novelty_rerun_2026-10.md`.
 
 ---
@@ -383,7 +383,7 @@ and margin-free statement, correlated specifications); Table 1 two-level header 
 variants + tuned + stronger baseline rows; Fig. 1 (b stage labels, muted own pipeline, +-delta moved, d at 719 ppi,
 panel-d title); refs: Fonseca 2015, Maquet 1996, Fukunaga 2006, Frazier 2005 (replaces Makris), Frey 2021; journal
 abbreviations; ds005127 v2.0.2 DOI (v2.0.1 has none; only change is a file we do not use).
-Release package script: make_release.py (local only; publishing is the user's decision).
+Release package script: make_release.py (local only; publishing is the author's decision).
 Draft 10 finished 2026-10-17 (dreams/paper_v2_draft10_2026-10-17.pdf = paper_isbi/main_v2_draft10.tex): 5 pages
 (technical content ends on p. 4; p. 5 = ethics, acks, 20 refs), 0 overfull, 27_verify_v2.py 356 checks ALL PASS.
 Final results of the post hoc checks:
@@ -397,7 +397,7 @@ Final results of the post hoc checks:
   0.596 -> 0.603 (no gain in REM sensitivity); gains N3 +0.049 / REM -0.024; with RETROICOR + slow regressors +0.034 / -0.019.
 - eyes (found in all 16 subjects; 97% of derivative epochs): alone REM AUC 0.69, but +0.001 [-0.016,+0.016] over non-BOLD,
   +0.004 over non-BOLD + BOLD; N3 +0.063 over non-BOLD; BOLD over non-BOLD + eyes: N3 +0.083 [+0.063,+0.104] 12/12.
-Release folder rebuilt (release_isbi2027/, 97+ files, TIMELINE.tsv); NOT published (user decision).
+Release folder rebuilt (release_isbi2027/, 97+ files, TIMELINE.tsv); NOT published (author's decision).
 
 ## UPDATE 2026-10-17: fresh PDF-only review of draft 10 -> draft 11
 Review: dreams/review_committee_2026-10-17_draft10_cold.md. Fixed in draft 11 (dreams/paper_v2_draft11_2026-10-17.pdf):
@@ -472,3 +472,20 @@ Panel reviews: dreams/review_panel_2026-10-17_draft14_{fmri,sleep,stats}.md. Dra
   larger where tSNR is higher (rho -0.39), all 200 parcels >= 80% covered in every run.
 - Discussion: "beyond the recorded ... as modelled"; repetition trimmed. Fig. 1c ticks in words.
 5 pages (p. 5 ethics/acknowledgments/references only), 0 overfull, 27_verify_v2.py 360 checks ALL PASS; release rebuilt.
+
+## UPDATE 2026-10-19: draft 16 = 4 pages, no fee; code public; submission sheet
+- Title: "Whole-night fMRI sleep staging: BOLD adds to deep sleep, little to REM" (alternatives in
+  submission_form.txt).
+- Fit to 4 pages: references in IEEE initials style, \footnotesize, 19 refs (dropped chang2016, chow2013, song2022,
+  fukunaga2006, ozbay2019, frazier2005); Table 2 \scriptsize and shorter captions; figure 2.05 in tall; text cuts of
+  secondary detail only (alignment and retention counts, 30 s-only kappa check, F1 CIs, bout geometry and
+  cross-night clauses [both still in Table 2's variant range], EOG phasic/tonic, visual-parcel count, detrended
+  clock r, Discussion repetition). Every pre-specified result and every main control is kept.
+- Abstract: abstract range fixed to +0.061 to +0.126 (guard in 26); AI disclosure now names all sections.
+- Code: https://github.com/rishabhramteke/fmri-sleep-staging (personal account, public, MIT). Built by
+  make_release.py --with-log (now ships 42-48, no manuscript, redacted log/ANALYSIS_LOG.md, LICENSE).
+  Local git checkout: public_repo/.
+- submission_form.txt: copy-paste sheet for EDAS (title, abstract, keywords, topics, declarations).
+4 pages, Letter, all fonts embedded, 0 overfull, 27_verify_v2.py 360 checks ALL PASS.
+Snapshot: dreams/paper_v2_draft16_2026-10-19.pdf (= paper_isbi/main_v2_draft16.tex).
+Note: if accepted, ISBI requires in-person presentation in Lausanne and conference registration (fees not posted).
