@@ -478,9 +478,9 @@ Panel reviews: dreams/review_panel_2026-10-17_draft14_{fmri,sleep,stats}.md. Dra
   submission_form.txt).
 - Fit to 4 pages: references in IEEE initials style, \footnotesize, 19 refs (dropped chang2016, chow2013, song2022,
   fukunaga2006, ozbay2019, frazier2005); Table 2 \scriptsize and shorter captions; figure 2.05 in tall; text cuts of
-  secondary detail only (alignment and retention counts, 30 s-only kappa check, F1 CIs, bout geometry and
-  cross-night clauses [both still in Table 2's variant range], EOG phasic/tonic, visual-parcel count, detrended
-  clock r, Discussion repetition). Every pre-specified result and every main control is kept.
+  secondary detail only (alignment and retention counts, 30 s-only kappa check, F1 CIs, the bout-geometry
+  check [bouts >= 5 min; now only in results_reviewer_checks.json] and the cross-night clause [still in Table 2's
+  variant range], EOG phasic/tonic, visual-parcel count, detrended clock r, Discussion repetition). Every pre-specified result and every main control is kept.
 - Abstract: abstract range fixed to +0.061 to +0.126 (guard in 26); AI disclosure now names all sections.
 - Code: https://github.com/rishabhramteke/fmri-sleep-staging (personal account, public, MIT). Built by
   make_release.py --with-log (now ships 42-48, no manuscript, redacted log/ANALYSIS_LOG.md, LICENSE).
@@ -489,3 +489,7 @@ Panel reviews: dreams/review_panel_2026-10-17_draft14_{fmri,sleep,stats}.md. Dra
 4 pages, Letter, all fonts embedded, 0 overfull, 27_verify_v2.py 360 checks ALL PASS.
 Snapshot: dreams/paper_v2_draft16_2026-10-19.pdf (= paper_isbi/main_v2_draft16.tex).
 Note: if accepted, ISBI requires in-person presentation in Lausanne and conference registration (fees not posted).
+
+## UPDATE 2026-10-19 (later): venue confirmed
+Title 1 kept. Venue: ISBI 2027 (not ISMRM 2027, whose 28 Oct abstract deadline overlaps ISBI's no-concurrent-review
+rule). Accepted ISBI papers must be presented in person in Lausanne, else withdrawn from the proceedings.
