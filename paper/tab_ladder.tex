@@ -1,0 +1,24 @@
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{1.4pt}
+\caption{Five-class staging (derivative, leave-one-subject-out, one HMM decoder for all models). AUC: within-subject, one-vs-rest, per-epoch; last row, in parentheses: gain over non-BOLD. Bold: best $\kappa$. 13,836 epochs, 12 subjects.}
+\label{tab:ladder}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+ & \multicolumn{2}{c}{after HMM} & \multicolumn{2}{c}{before HMM: AUC} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+Model (features) & $\kappa$ [95\% CI] & F1$_\mathrm{REM}$ & N3 & REM \\
+\midrule
+Elapsed time (2) & 0.05 [0.03, 0.07] & 0.27 & 0.61 & 0.81 \\
+Head motion (25) & 0.12 [0.05, 0.18] & 0.15 & 0.67 & 0.55 \\
+Physiology (65) & 0.20 [0.15, 0.24] & 0.31 & 0.74 & 0.74 \\
+Non-BOLD (92) & 0.23 [0.19, 0.28] & 0.39 & 0.77 & 0.85 \\
+\midrule
+7-network FC (21) & 0.35 [0.31, 0.39] & 0.39 & 0.88 & 0.72 \\
+BOLD (221) & \textbf{0.45} [0.41, 0.49] & 0.54 & 0.91 & 0.76 \\
+\midrule
+Non-BOLD + BOLD & 0.41 [0.37, 0.45] & 0.45 & 0.91 (+0.14) & 0.84 ($-$0.01) \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,10 @@
+{
+ "align_ok": 227,
+ "align_runs": 229,
+ "align_naive": 203,
+ "phys_r2": 0.30905607349179065,
+ "n_r2_runs": 217,
+ "age_min": 20.8,
+ "age_max": 33.1,
+ "n_female": 9
+}

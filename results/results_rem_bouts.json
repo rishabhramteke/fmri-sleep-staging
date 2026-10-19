@@ -1,0 +1,8 @@
+{
+ "n_bouts": 114,
+ "median_bout_min": 2.5,
+ "mean_bout_min": 5.355263157894737,
+ "max_bout_min": 30.0,
+ "frac_rem_night2": 0.6625716625716626,
+ "frac_epochs_night2": 0.47925701069673315
+}
