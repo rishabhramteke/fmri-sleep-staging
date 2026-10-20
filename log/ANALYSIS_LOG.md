@@ -738,3 +738,23 @@ tempering clause, physiology-alone across/within-bin clause, band/tSNR clause, F
 float and bibliography spacing in the preamble (margins and fonts unchanged). 4 pages, 0 overfull, fonts embedded,
 27_verify_v2.py 435 checks ALL PASS (new: CNN within-bin REM gains, decoded F1 and its bootstrap CI).
 submission_form.txt abstract updated (195 words). A fresh cold review of draft 22 is running.
+
+## 2026-10-20 (19:30): cold review of draft 22 -> draft 23; review loop stopped
+Review: dreams/review_cold_2026-10-20_draft22.md (fourth consecutive cold review at the same score). Fixed in draft 23
+(dreams/paper_v2_draft23_2026-10-20.pdf), the objective errors and cheap clarifications:
+- abstract: "+0.073 for a CNN encoder by late fusion within 1 h bins" (was mislabelled "within 1 h bins"); the N3-REM
+  difference "set after a pilot" (it was in the analysis code, not the dated log; Methods says so; "planned" dropped
+  from Results);
+- Methods: regional level "200, 215 with the structures" (the draft-22 compression had left "215" against Table 2's
+  200); the censored fraction is in the non-BOLD model "for the derivative" only (the 16-subject analyses lack it);
+  pretraining windows "90 s at 15 s steps"; subcortex rule worded as logged;
+- Results: "On the derivative, BOLD raises AUC ..."; "t upper bound +0.031" within bins; stronger baselines "give N3
+  gains of +0.061 to +0.126" (not all six are the smallest); transfer AUCs per stage as a list (kappa dropped);
+  the time-alone AUC/F1 sentence dropped (Table 1 row);
+- Discussion: early fusion ranks REM below non-BOLD alone (0.836 vs 0.847), so Delta AUC bounds what these models use;
+- layout: \belowcaptionskip 3 pt (Table 1's top rule overprinted its caption); citation order [5, 6].
+Not done (author's constraints or no space): retitling (asked by both latest reviews; title kept at the author's
+request), tables at >= 7 pt, abstract additions (subcortical secondary, decoded REM F1), Fig. 1a marker offsets, the
+per-item count of the 21 variants. 4 pages, 0 overfull, fonts embedded, 435 checks ALL PASS. submission_form.txt
+abstract updated (198 words). Review loop stopped: four independent cold reviews give the same scores; each round
+lists new requests rather than unresolved old ones.
