@@ -260,6 +260,57 @@ def probe(smoke=False, ckpt=None):
     print(f"saved results_ssl_probe{suffix}.json")
 
 
+def probe_strict(tag="_ex_"):
+    """Strict leave-one-subject-out probe: for each held-out subject the encoder pretrained WITHOUT that subject
+    (ssl_checkpoint_ex_<sub>.pt) embeds every window, the LR is fitted on the other subjects and predicts the held-out
+    one. Readout as probe(); writes results_ssl_probe_strict.json, predictions_ssl_probe_strict.npz."""
+    e = _load("e24", "24_experiments_v2.py")
+    x36 = _load("x36b", "36b_extra_block.py")
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    ST = e.STAGES
+    dev = torch.device("cpu")
+    D = e.load("afni"); B = e.blocks(D)
+    y, s, rn, ep = D["stage"], D["subj"], D["run"], D["epoch"]
+    W = np.load(BASE / "windows_learned_encoder.npz", allow_pickle=True)
+    key = {(r, int(p)): i for i, (r, p) in enumerate(zip(W["run"].astype(str), W["epoch"]))}
+    rows = np.array([key[(r, int(p))] for r, p in zip(rn, ep)])
+    nb = np.hstack([B["motion"], B["physio"], B["clock"]])
+    P = {k: np.zeros((len(y), len(ST))) for k in ("nb", "nb+emb", "nb+bold+emb", "emb")}
+    for u in np.unique(s):
+        ck = torch.load(BASE / f"ssl_checkpoint{tag}{u}.pt", map_location=dev)
+        assert ck.get("exclude") == u, (u, ck.get("exclude"))
+        enc = Encoder(); enc.load_state_dict(ck["tgt"])
+        emb = e.wz(embed(enc, W["X"][rows], W["M"][rows], dev), s)
+        sets = {"nb": nb, "nb+emb": np.hstack([nb, emb]), "nb+bold+emb": np.hstack([nb, B["bold"], emb]), "emb": emb}
+        tr, te = s != u, s == u
+        for k, X in sets.items():
+            c = make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000, C=1.0, class_weight="balanced"))
+            c.fit(X[tr], y[tr])
+            P[k][te] = c.predict_proba(X[te])[:, [list(c.classes_).index(v) for v in ST]]
+        print(f"  fold {u} done", flush=True)
+    R = {"meta": dict(n_epochs=int(len(y)), n_subjects=int(len(np.unique(s))), strict=True, checkpoint_tag=tag),
+         "auc_ws": {k: {st: float(np.mean(list(e.ws_auc((y == st).astype(int), P[k][:, i], s).values()) or [np.nan])) for i, st in enumerate(ST)} for k in P},
+         "gain": {}}
+    G = x36.gains(P["nb+emb"], P["nb"], y, s)
+    R["gain"]["nb+emb - nb"] = {"per_stage": {st: {k: v for k, v in G[st].items() if k != "boot_ws"} for st in ST}, "contrast": x36.contrast(G)}
+    g3, gr = G["N3"], G["REM"]
+    print(f"  strict nb+emb - nb: N3 {g3['ws_mean']:+.3f} [{g3['ws_ci'][0]:+.3f},{g3['ws_ci'][1]:+.3f}] {g3['n_pos']}/{g3['n_subj']}  "
+          f"REM {gr['ws_mean']:+.3f} [{gr['ws_ci'][0]:+.3f},{gr['ws_ci'][1]:+.3f}] up {gr['ws_upper95']:+.3f} t {gr['t_upper95']:+.3f}  "
+          f"contrast {R['gain']['nb+emb - nb']['contrast']['value']:+.3f}", flush=True)
+    HP, R["hmm"] = {}, {}
+    for k in ("emb", "nb+emb"):
+        pred = e.hmm_decode(P[k], y, s, rn, ep); HP["hmm__" + k] = pred.astype(str)
+        met = e.staging(y, pred, s)
+        R["hmm"][k] = dict(kappa=met["kappa"], f1=met["f1"], kappa_ci=e.boot_kappa(y, pred, s))
+        print(f"  strict HMM kappa {k:8s} {met['kappa']:.3f}", flush=True)
+    print("  strict emb alone AUC", {st: round(v, 3) for st, v in R["auc_ws"]["emb"].items()}, flush=True)
+    (BASE / "results_ssl_probe_strict.json").write_text(json.dumps(R, indent=1))
+    np.savez_compressed(BASE / "predictions_ssl_probe_strict.npz", y=y, subj=s, run=rn, epoch=ep, **{"proba__" + k: v.astype(np.float32) for k, v in P.items()}, **HP)
+    print("saved results_ssl_probe_strict.json")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true")
@@ -271,7 +322,10 @@ def main():
     ap.add_argument("--save-every", type=int, default=0, help="also keep a checkpoint every K epochs (ssl_checkpoint<tag>_epK.pt)")
     ap.add_argument("--tag", default="", help="suffix for this pretraining run's files, e.g. _long")
     ap.add_argument("--probe-checkpoint", default=None, help="probe this checkpoint file instead of ssl_checkpoint.pt")
+    ap.add_argument("--probe-strict", action="store_true", help="per-fold encoders pretrained without the held-out subject (ssl_checkpoint_ex_<sub>.pt)")
     a = ap.parse_args()
+    if a.probe_strict:
+        probe_strict()
     if a.build:
         build(a.smoke)
     if a.pretrain:

@@ -836,20 +836,26 @@ def main():
     for fam, lab in (("lr", "Stronger $+$ eye block, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
         rob.append((lab, CV[fam]["gain"], "strong"))
     # learned representations of each epoch's 90 s parcel series (53_learned_encoder.py, 54_ssl_pretrain.py), the
-    # paper's readout on both; the encoder row compares two networks of the same design (as the BiGRU rows do)
+    # paper's readout on both; the encoder row compares two networks of the same design (as the BiGRU rows do).
+    # The embedding row is the strict run (one encoder per fold, pretrained without the held-out subject); the
+    # transductive run (one encoder on all runs, held-out subject's unlabeled windows included) is kept as sslTrans*
     LE = json.load(open(BASE / "results_learned_encoder.json"))
     LX = json.load(open(BASE / "results_learned_encoder_extra.json"))
-    SSL = json.load(open(BASE / "results_ssl_probe.json"))
+    SSL = json.load(open(BASE / "results_ssl_probe_strict.json"))
+    SSLT = json.load(open(BASE / "results_ssl_probe.json"))
+    assert SSL["meta"].get("strict") and SSLT["meta"]["exclude"] is None
     g_le, g_ssl = LE["gain_nb+enc_over_nb"], SSL["gain"]["nb+emb - nb"]["per_stage"]
+    g_sslT = SSLT["gain"]["nb+emb - nb"]["per_stage"]
     rob += [("Temporal CNN encoder, joint network", g_le, "learned"),
             ("Self-supervised embedding, LR", g_ssl, "learned")]
-    for tag, r in (("le", g_le), ("ssl", g_ssl)):
+    for tag, r in (("le", g_le), ("ssl", g_ssl), ("sslTrans", g_sslT)):
         for st in ("N3", "REM"):
             M[f"{tag}{SN[st]}"], M[f"{tag}{SN[st]}ci"] = sg(r[st]["ws_mean"]), ci(r[st]["ws_ci"])
             M[f"{tag}{SN[st]}up"], M[f"{tag}{SN[st]}upT"] = sg(r[st]["ws_upper95"]), sg(tbound(r[st]))
             M[f"{tag}{SN[st]}Subj"], M[f"{tag}{SN[st]}SubjN"] = str(r[st]["n_pos"]), str(r[st]["n_subj"])
     for st in STAGES:
         M[f"leAuc{SN[st]}"], M[f"sslAuc{SN[st]}"] = f3(LE["auc_ws"]["enc"][st]), f3(SSL["auc_ws"]["emb"][st])
+        M[f"sslTransAuc{SN[st]}"] = f3(SSLT["auc_ws"]["emb"][st])
     lx_lr, lx_late = LX["gain"]["nb+enc_nn - nb_lr"]["per_stage"], LX["gain"]["late(nb_lr,enc) - nb_lr"]["per_stage"]
     for tag, r in (("leLr", lx_lr), ("leLate", lx_late)):
         for st in ("N3", "REM"):
@@ -857,14 +863,19 @@ def main():
     for st in ("N3", "REM"):
         M[f"leStrat{SN[st]}"] = sg(LX["stratified_1h"]["nb+enc_nn - nb_nn"][st]["mean"])
         M[f"leLateStrat{SN[st]}"] = sg(LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"][st]["mean"])
-        M[f"sslBeyond{SN[st]}"] = sg(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_mean"])
-        M[f"sslBeyond{SN[st]}ci"] = ci(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_ci"])
-    # text: "learned representations add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
+    # text: "they add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
     lrn = [g_le, g_ssl]                       # the two specification rows; leLr*/leLate* are reported separately
     M["lrnRemMin"], M["lrnRemMax"] = sg(min(r["REM"]["ws_mean"] for r in lrn)), sg(max(r["REM"]["ws_mean"] for r in lrn))
     M["lrnNthreeMin"], M["lrnNthreeMax"] = sg(min(r["N3"]["ws_mean"] for r in lrn)), sg(max(r["N3"]["ws_mean"] for r in lrn))
-    assert all(r["N3"]["ws_mean"] > 3 * r["REM"]["ws_mean"] for r in lrn), "text: N3 gain at least three times the REM gain for every learned representation"
-    assert min(LE["auc_ws"]["enc"]["REM"], SSL["auc_ws"]["emb"]["REM"]) > A["auc_ws"]["bold"]["REM"]["mean"] + 0.08, "text: learned representations detect REM from BOLD alone far better than epoch features"
+    assert all(r["N3"]["ws_mean"] > 3 * max(r["REM"]["ws_mean"], 0.0) for r in lrn), "text: N3 gain at least three times the REM gain for every learned representation"
+    # text: the CNN encoder detects REM from BOLD alone far better than the epoch features, the strict embedding
+    # slightly; pretraining on the held-out subject's own runs (transductive) lifts the embedding's REM AUC
+    b_rem = A["auc_ws"]["bold"]["REM"]["mean"]
+    assert LE["auc_ws"]["enc"]["REM"] > b_rem + 0.08, "text: the encoder detects REM from BOLD alone far better than epoch features"
+    assert b_rem < SSL["auc_ws"]["emb"]["REM"] < b_rem + 0.05, "text: the strict embedding detects REM slightly better than epoch features"
+    assert SSLT["auc_ws"]["emb"]["REM"] > SSL["auc_ws"]["emb"]["REM"] + 0.05, "text: the transductive embedding detects REM far better than the strict one"
+    assert g_ssl["REM"]["ws_upper95"] < ma["delta"] and tbound(g_ssl["REM"]) < ma["delta"], "table: the strict embedding's REM gain lies inside the margin"
+    assert g_ssl["N3"]["n_pos"] == g_ssl["N3"]["n_subj"], "table: the strict embedding's N3 gain is positive in every subject"
     k2_ = lambda x: f"{x:.2f}"
     # leakage checks on the encoder: the censoring pattern alone (mask_only) and without the 14 orbitofrontal parcels
     LM = json.load(open(BASE / "results_learned_encoder_mask_only.json")); LO = json.load(open(BASE / "results_learned_encoder_no_orbitofrontal.json"))
@@ -873,17 +884,19 @@ def main():
     assert LM["auc_ws"]["enc"]["REM"] < 0.6 and LM["gain_nb+enc_over_nb"]["REM"]["ws_mean"] < 0.015, "text: the censoring pattern alone carries no REM information"
     assert abs(LO["gain_nb+enc_over_nb"]["REM"]["ws_mean"] - g_le["REM"]["ws_mean"]) < 0.01 and abs(LO["auc_ws"]["enc"]["REM"] - LE["auc_ws"]["enc"]["REM"]) < 0.01, \
         "text: the encoder's REM information does not depend on the orbitofrontal parcels"
-    M["kkEnc"], M["kkEmb"] = k2_(LE["hmm"]["enc"]["kappa"]), k2_(SSL["hmm"]["emb"]["kappa"])
+    M["kkEnc"], M["kkEmb"], M["kkEmbTrans"] = k2_(LE["hmm"]["enc"]["kappa"]), k2_(SSL["hmm"]["emb"]["kappa"]), k2_(SSLT["hmm"]["emb"]["kappa"])
     M["kkNbEnc"], M["kkNbEmb"] = k2_(LE["hmm"]["nb+enc"]["kappa"]), k2_(SSL["hmm"]["nb+emb"]["kappa"])
     sw = np.load(BASE / "ssl_windows.npz", allow_pickle=True)
     M["nSslWindows"], M["nSslRuns"] = f"{len(sw['subj']):,}", str(len(np.unique(sw["run"])))
     M["nSslHours"] = f"{len(sw['subj']) * 5 * 3 / 3600:.0f}"
-    # text: richer estimators reach at most kkRichMax; the self-supervised embedding kkEmb; tempering does not remove the drop
+    # text: richer estimators (incl. the strict self-supervised embedding) reach at most kkRichMax; tempering does not
+    # remove the drop. Only the transductive embedding (kkEmbTrans, not in the paper) exceeds kkRichMax.
     SU = json.load(open(BASE / "results_stager_upgrades.json")); TH = json.load(open(BASE / "results_tempered_hmm.json"))
     rich = {k: v["hmm"]["1.0"]["kappa"] for k, v in SU.items() if k != "meta" and "hmm" in v and k not in ("strong:lr_nb", "strong:gru_nb")}
     rich["temporal CNN encoder"] = LE["hmm"]["enc"]["kappa"]
+    rich["self-supervised embedding"] = SSL["hmm"]["emb"]["kappa"]
     M["kkRichMax"], M["nKappaVariants"] = k2_(max(rich.values())), str(len(rich))
-    assert SSL["hmm"]["emb"]["kappa"] > max(rich.values()) and SSL["hmm"]["emb"]["kappa"] < 0.5
+    assert max(rich.values()) < 0.5 and SSLT["hmm"]["emb"]["kappa"] > max(rich.values())
     td = TH["paired"]["nonbold+bold vs bold"]
     M["kdTemperedAllBold"], M["kdTemperedAllBoldci"] = sg(td["diff"]), ci(td["ci"])
     assert td["ci"][1] < 0, "text: tempering the emissions does not remove the kappa drop"

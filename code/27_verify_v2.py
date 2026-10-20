@@ -360,10 +360,13 @@ def main():
     rows += [P1_["tones5"]["gain"], P1_["lagged"]["gain"], P2_["noaud"]["gain"]]
     rows += [P2_["conserv"][f]["gain"] for f in ("lr", "hgb", "gru")]
     # draft 18: learned representations (53_learned_encoder.py, 54_ssl_pretrain.py), recomputed from their predictions
-    LE_, SSL_ = L("results_learned_encoder.json"), L("results_ssl_probe.json")
+    # the embedding row is the strict (per-fold, held-out subject excluded) run; the transductive run is sslTrans*
+    LE_, SSL_ = L("results_learned_encoder.json"), L("results_ssl_probe_strict.json")
+    assert SSL_["meta"].get("strict")
     rows += [LE_["gain_nb+enc_over_nb"], SSL_["gain"]["nb+emb - nb"]["per_stage"]]
     for fname, pa_k, pb_k, tag, alone in (("predictions_learned_encoder.npz", "proba__nb+enc", "proba__nb", "le", "proba__enc"),
-                                          ("predictions_ssl_probe.npz", "proba__nb+emb", "proba__nb", "ssl", "proba__emb")):
+                                          ("predictions_ssl_probe_strict.npz", "proba__nb+emb", "proba__nb", "ssl", "proba__emb"),
+                                          ("predictions_ssl_probe.npz", "proba__nb+emb", "proba__nb", "sslTrans", "proba__emb")):
         LP = np.load(BASE / fname, allow_pickle=True)
         assert (LP["y"] == y).all() and (LP["subj"] == s).all(), fname
         for st in ("N3", "REM"):
@@ -373,8 +376,8 @@ def main():
             check(f"{tag}{SN[st]}upT", tup(dict(enumerate(d_))), num(M[f"{tag}{SN[st]}upT"]), 6e-4)
         for st in STAGES:
             check(f"{tag}Auc{SN[st]}", np.mean(list(ws(y, LP[alone], s, st, STAGES.index(st)).values())), num(M[f"{tag}Auc{SN[st]}"]), 6e-4)
-        for hk, mk in (("hmm__emb", "kkEmb"), ("hmm__nb+emb", "kkNbEmb")):
-            if hk in LP.files:
+        if tag == "ssl":
+            for hk, mk in (("hmm__emb", "kkEmb"), ("hmm__nb+emb", "kkNbEmb")):
                 check(mk, cohen_kappa_score(y, LP[hk]), num(M[mk]), 5.1e-3)
     for fname, mk in (("predictions_learned_encoder_mask_only.npz", "leMaskAucREM"), ("predictions_learned_encoder_no_orbitofrontal.npz", "leNoOfcAucREM")):
         LP = np.load(BASE / fname, allow_pickle=True)

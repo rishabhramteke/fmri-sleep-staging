@@ -595,3 +595,23 @@ the last column early before the two short closing sections; those two headings 
 look, numbered via the section counter). One citation (altmann2016) dropped to make room. 4 pages, 0 overfull,
 406 checks ALL PASS. Snapshot dreams/paper_v2_draft19_2026-10-20.pdf. Review loop stopped here (3-4 for days).
 Strict (held-out-subject-excluded) pretraining runs in the background for the follow-up; not needed for the paper.
+
+## 2026-10-20 (04:10): strict self-supervised pretraining finished -> draft 20
+Strict run (54_ssl_pretrain.py --pretrain --exclude-subject per fold: 12 encoders x 50 epochs, about 10 min each, six
+in parallel, no collapse, final embedding spread 0.22-0.23; then --probe-strict): embedding alone W/N1/N2/N3/REM AUC
+0.838/0.711/0.782/0.926/0.781; nb+emb minus nb: N3 +0.147 [+0.112, +0.188] 12/12, REM -0.004 [-0.021, +0.013]
+(one-sided upper bounds +0.010 bootstrap, +0.012 t: inside the margin), N3-REM contrast +0.158 (10/10); HMM kappa
+embedding 0.455, nb+embedding 0.418. Transductive run (one encoder on all 185 runs, held-out subject's unlabeled
+windows included, 80 epochs): REM AUC 0.864, REM gain +0.018 [+0.003, +0.035], N3 +0.172, kappa 0.478. At matched
+50 epochs the transductive encoder still gives REM AUC 0.847 and REM gain +0.010, so the gap is the held-out subject's
+own windows in pretraining (subject-specific structure), not training length.
+Decision: the Table 2 row is now the strict run (LOSO-consistent like every other row); the transductive REM AUC is
+quoted in the Results sentence as the comparison ("0.864 once the held-out subject's own runs enter pretraining").
+Consequences: REM inside the margin in 34 specifications, 13 exceptions (was 14), CI above zero in 6 of them (was 7);
+learned-representation ranges REM -0.004 to +0.048, N3 +0.147 to +0.152; kappa clause "19 variants, from boosted trees
+to the temporal CNN and the self-supervised embedding, reach at most 0.46"; Methods "pretrained label-free per fold on
+the training subjects' runs". Abstract unchanged (47 specifications, 44, REM -0.031 to +0.048), so submission_form.txt
+stands. 26_paper_numbers_v2.py reads results_ssl_probe_strict.json for the row and keeps the transductive run as
+sslTrans* macros; 27_verify_v2.py recomputes both from predictions_ssl_probe_strict.npz / predictions_ssl_probe.npz.
+Draft 20: dreams/paper_v2_draft20_2026-10-20.pdf, paper_isbi/main_v2_draft20.tex. 4 pages, 0 overfull, 419 checks
+ALL PASS, fonts embedded. Release rebuilt. Nothing left running.
