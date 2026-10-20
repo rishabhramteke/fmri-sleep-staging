@@ -396,6 +396,23 @@ def main():
                 Aw_, Bw_ = ws(yl, LPd["proba__nonbold+" + key], sl, st, j), ws(yl, LPd["proba__nonbold"], sl, st, j)
                 check(f"ldInc{tag}{SN[st]}", np.mean([Aw_[u] - Bw_[u] for u in Aw_]), num(M[f"ldInc{tag}{SN[st]}"]), 6e-4)
                 check(f"ldAuc{tag}{SN[st]}", np.mean(list(ws(yl, LPd["proba__" + key], sl, st, j).values())), num(M[f"ldAuc{tag}{SN[st]}"]), 6e-4)
+    # draft 21: cross-site (55_cross_site.py), strict per-fold encoders; three-class probabilities saved per NIH epoch
+    if (BASE / "predictions_cross_site_ssl_strict_joint.npz").exists():
+        CP = np.load(BASE / "predictions_cross_site_ssl_strict_joint.npz", allow_pickle=True)
+        y3, s3 = CP["nih3_y"].astype(str), CP["nih3_subj"].astype(str)
+        for k, tag in (("psu_to_nih", "csPtoN"), ("nih_within", "csNihWithin")):
+            P3 = CP["proba3__" + k]
+            for j, st in enumerate(("W", "N1", "N2")):
+                check(f"{tag}Auc{SN[st]}", np.mean(list(ws(y3, P3, s3, st, j).values())), num(M[f"{tag}Auc{SN[st]}"]), 6e-4)
+            check(f"{tag}Kappa", cohen_kappa_score(y3, np.array(["W", "N1", "N2"])[P3.argmax(1)]), num(M[f"{tag}Kappa"]), 5.1e-3)
+        # within-Penn-State kappa (argmax readouts) recomputed from the saved probabilities must not exceed the quoted maximum
+        kmax = []
+        for fname in ("predictions_cross_site_hand.npz", "predictions_cross_site_ssl_nih_rv3.npz", "predictions_cross_site_ssl_joint_rv3.npz"):
+            Q = np.load(BASE / fname, allow_pickle=True)
+            yp3, m3 = Q["psu_y"].astype(str), np.isin(Q["psu_y"].astype(str), ["W", "N1", "N2"])
+            for key in [f for f in Q.files if f.endswith("proba3__psu_within")]:
+                kmax.append(cohen_kappa_score(yp3[m3], np.array(["W", "N1", "N2"])[Q[key][m3].argmax(1)]))
+        check("csPsuWithinKappaMax (>= argmax max)", max(kmax) - 0.005, min(max(kmax) - 0.005, num(M["csPsuWithinKappaMax"])), 0)
     check("nSpec", len(rows), num(M["nSpec"]), 0)
     check("envRemMin", min(r["REM"]["ws_mean"] for r in rows), num(M["envRemMin"]), 6e-4)
     check("envRemMax", max(r["REM"]["ws_mean"] for r in rows), num(M["envRemMax"]), 6e-4)

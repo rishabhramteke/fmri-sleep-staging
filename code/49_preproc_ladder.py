@@ -34,6 +34,7 @@ BASE = Path(__file__).parent
 RAW = BASE / "data" / "ds005127"
 MOT = BASE / "derivatives" / "motion_ds005127"
 OUT = BASE / "derivatives" / "rv3_ds005127"
+TASK_GLOB = "*task-sleep*.nii.gz"               # 55_cross_site.py re-points RAW/MOT/OUT and widens this to rest runs
 FD_CENSOR = 0.5
 GM_MIN = 0.5
 VARIANTS = ("aff", "aff_gm", "aff_tis", "syn", "syn_gm", "syn_tis", "syn_gm_tis")
@@ -127,7 +128,7 @@ def process_subject(sub, max_runs=0, shard=(0, 1)):
     rv = _load("rv", "06b_raw_v2.py")
     from nilearn.datasets import (fetch_atlas_schaefer_2018, load_mni152_brain_mask, load_mni152_gm_template,
                                   load_mni152_template, load_mni152_wm_template)
-    funcs = sorted(RAW.glob(f"{sub}/**/func/*task-sleep*.nii.gz"))
+    funcs = sorted(RAW.glob(f"{sub}/**/func/{TASK_GLOB}"))
     t1s = sorted(RAW.glob(f"{sub}/**/anat/*T1w.nii.gz"))
     tmpl_img = load_mni152_template(resolution=2)
     template = np.asanyarray(tmpl_img.dataobj, dtype=np.float32)
@@ -237,7 +238,7 @@ def process_subject(sub, max_runs=0, shard=(0, 1)):
 
 
 def remaining(sub):
-    return [f for f in sorted(RAW.glob(f"{sub}/**/func/*task-sleep*.nii.gz"))
+    return [f for f in sorted(RAW.glob(f"{sub}/**/func/{TASK_GLOB}"))
             if not (OUT / sub / f"{f.name.replace('_bold.nii.gz', '')}_rv3.npz").exists()
             and (MOT / sub / f"{f.name.replace('_bold.nii.gz', '')}_motion.npz").exists()]
 

@@ -900,6 +900,28 @@ def main():
     td = TH["paired"]["nonbold+bold vs bold"]
     M["kdTemperedAllBold"], M["kdTemperedAllBoldci"] = sg(td["diff"]), ci(td["ci"])
     assert td["ci"][1] < 0, "text: tempering the emissions does not remove the kappa drop"
+    # cross-site follow-up (55_cross_site.py): the Penn State naps (ds003768) through the same chain as the rv3 rung;
+    # strict per-fold encoders pretrained on both sites without the held-out NIH subject; the W/N1/N2 readout is fitted
+    # on the naps' labels alone and applied to that subject (csPtoN*), against the within-site LOSO readout (csNihWithin*)
+    CS = json.load(open(BASE / "results_cross_site_ssl_strict_joint.json"))
+    CH = json.load(open(BASE / "results_cross_site_hand.json"))
+    CE = {t: json.load(open(BASE / f"results_cross_site_ssl_{t}.json")) for t in ("nih_rv3", "joint_rv3")}
+    assert CS["meta"]["strict"] and CS["meta"]["n_nih_subjects"] == int(M["nSubj"])
+    M["csPsuSubj"] = str(CS["meta"]["psu"]["n_subjects"])
+    M["csPsuRuns"], M["csPsuEpochs"] = str(CH["meta"]["psu"]["n_runs"]), f"{CH['meta']['psu']['n_epochs']:,}"
+    for k, tag in (("psu_to_nih", "csPtoN"), ("nih_within", "csNihWithin")):
+        for st in ("W", "N1", "N2"):
+            M[f"{tag}Auc{SN[st]}"] = f3(CS[k]["auc_ws"][st])
+        M[f"{tag}Kappa"] = k2_(CS[k]["kappa"])
+        M[f"{tag}Kappaci"] = f"[{CS[k]['kappa_ci'][0]:.2f}, {CS[k]['kappa_ci'][1]:.2f}]"
+    pw = [v["psu_within"][m]["kappa"] for v in CH["hand"].values() for m in ("argmax", "hmm")] + \
+         [E["embedding"]["psu_within"][m]["kappa"] for E in CE.values() for m in ("argmax", "hmm")]
+    n2p = [v["nih_to_psu"][m]["kappa"] for v in CH["hand"].values() for m in ("argmax", "hmm_nih_transitions")] + \
+          [E["embedding"]["nih_to_psu"][m]["kappa"] for E in CE.values() for m in ("argmax", "hmm_nih_transitions")]
+    M["csPsuWithinKappaMax"], M["csNtoPKappaMax"] = k2_(max(pw)), k2_(max(n2p))
+    assert max(pw) < 0.2 and max(n2p) < 0.15, "text: the naps stage poorly from BOLD, locally trained or transferred"
+    assert CS["psu_to_nih"]["kappa"] > 0.25 and all(CS["psu_to_nih"]["auc_ws"][st] > CS["nih_within"]["auc_ws"][st] - 0.05 for st in ("W", "N2")), \
+        "text: the nap-label readout comes close to the within-site W and N2 AUC"
     # the four baseline comparisons (physiology, time, both, second half) are given in the text, not the table
     rob += [(f"Minimal pipeline, {mw['n_subjects']} subjects", inc_w["nonbold+bold - nonbold"], "own"),
             ("\\quad boosted trees", W["hgb"]["increment"], "own")]

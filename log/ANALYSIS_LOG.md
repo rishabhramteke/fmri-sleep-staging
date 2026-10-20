@@ -615,3 +615,91 @@ stands. 26_paper_numbers_v2.py reads results_ssl_probe_strict.json for the row a
 sslTrans* macros; 27_verify_v2.py recomputes both from predictions_ssl_probe_strict.npz / predictions_ssl_probe.npz.
 Draft 20: dreams/paper_v2_draft20_2026-10-20.pdf, paper_isbi/main_v2_draft20.tex. 4 pages, 0 overfull, 419 checks
 ALL PASS, fonts embedded. Release rebuilt. Nothing left running.
+
+## 2026-10-20 (08:05): follow-up started: cross-site transfer and a joint self-supervised corpus (55_cross_site.py)
+Why the earlier transfer sat at floor: within-ds003768 LOSO with the same minimal-pipeline features is itself at floor
+(kappa 0.07; W-vs-N2 within-subject AUC 0.62), and a label-shift scan (-8..+8 epochs) peaks at zero lag, so the labels
+are aligned; the ladder on ds005127 showed that the minimal pipeline's amplitude is the weak signal (BOLD-alone N3 AUC
+0.654 vs 0.836 for the nuisance-regressed derivative). So ds003768 goes through the same chain as ds005127's rv3 rung:
+23_realign.py motion, 49 chain (affine/SyN atlas, GM prior, WM PCs + CSF, 24 motion parameters; no physiology exists
+for ds003768), on all 255 runs (189 sleep + 66 rest; the rest runs are sleep-scored too: W 708, N1 341, N2 217).
+Hypnogram parser now reads the 4-column file (sub-01) as well: 254 runs, 33 subjects, 6,859 scorable epochs.
+Other public sleep-scored fMRI: none. NIH sleep2 (ds006163) is embargoed (release planned 2028); OpenNeuro/NEMAR
+searches find only ds003768 and ds005127. "More data" therefore means ds003768 (43-64 h) and, later, unlabelled
+resting-state corpora (decided after the joint-corpus result below).
+Running (a shell chain calling 55_cross_site.py and 54_ssl_pretrain.py): motion (3 workers, 15-22 s/run) -> sample (4 workers, runs-per-task 3) ->
+features_ds003768_rv3.npz -> results_cross_site_hand.json (within-PSU LOSO, NIH->PSU, PSU->NIH for amp_{aff,aff_gm,syn,
+syn_gm}{,_acc,_accmot}, identical pipeline both sides) -> ssl_windows_joint_rv3.npz (ssl_windows.npz + PSU at TR 3 s) ->
+results_cross_site_ssl_nih_rv3.json (NIH-only encoder on PSU) -> joint pretraining (transductive 80 epochs; 12 strict
+per-fold encoders, 50 epochs, 4 at a time) -> results_ssl_probe_joint.json, results_ssl_probe_strict_joint.json
+(does the second site's unlabelled data change the ds005127 N3/REM gains?), results_cross_site_ssl_joint_rv3.json.
+Preview (a second chain) on the existing minimal-pipeline PSU series: 10,394 windows (189 sleep runs,
+31 subjects, 43 h), 5,592 labelled windows; results_cross_site_ssl_nih_minimal.json, ssl_checkpoint_jointmin.pt,
+results_cross_site_ssl_jointmin_minimal.json, results_ssl_probe_jointmin.json. 54 gained --windows; 49 TASK_GLOB.
+Machine load is 50-60 from other jobs, so timings are uncertain.
+
+## 2026-10-20 (09:10): preview on the minimal-pipeline Penn State series (results_cross_site_ssl_*.json, results_ssl_probe_jointmin.json)
+Joint corpus = ssl_windows.npz (28,933 NIH windows) + 10,394 PSU windows (189 sleep runs, 31 subjects, 43 h, minimal
+pipeline, resampled 2.1 -> 3 s); one transductive encoder, 80 epochs (ssl_checkpoint_jointmin.pt).
+- NIH probe, transductive (compare results_ssl_probe.json, NIH-only, 80 epochs: N3 +0.172, REM +0.018, kappa 0.478,
+  embedding REM AUC 0.864): joint N3 +0.175 [+0.134, +0.217] 12/12, REM +0.025 (upper +0.046, t +0.049), contrast
+  +0.157, kappa 0.477, embedding REM AUC 0.870. The second site's 43 h change nothing on ds005127.
+- Cross-site, NIH-only encoder (ssl_checkpoint.pt, PSU never seen): NIH -> PSU kappa 0.03 (AUC W 0.52, N1 0.51,
+  N2 0.55); within-PSU LOSO on the embedding kappa 0.09 (hand features 0.07); PSU -> NIH kappa 0.11 (W 0.60, N2 0.64).
+- Cross-site, joint encoder: NIH -> PSU still at floor (kappa 0.02-0.03); within-PSU kappa 0.11 (AUC W 0.64, N2 0.66);
+  PSU -> NIH kappa 0.24, within-subject AUC W 0.74, N1 0.57, N2 0.79 over the 12 NIH subjects. So a readout trained on
+  the nap labels transfers to the whole-night data once the encoder has seen both sites label-free, but not the other
+  way round: the Penn State side (minimal pipeline, 15-min naps, N1-heavy) is the weak link, as the within-site floor
+  says. The nuisance-regressed chain (running) is the real test. 55 now also reports a three-class NIH model
+  (nih3_to_psu) so both directions use the same class set.
+Sampling throughput: 2.1 runs/min with 8 or 12 workers (CPU saturated by other jobs; load 120-180), 257 s per run.
+
+## 2026-10-20 (12:35): cross-site results with the nuisance-regressed chain on both sites (chain finished 11:12)
+Penn State through the 49 chain: 255 runs sampled (SyN 15 s per subject; 2-4 runs/min with 8-12 workers on a saturated
+machine), features_ds003768_rv3.npz: 6,859 epochs, 33 subjects, 234 runs with finite features (62 rest runs).
+Hand features, identical pipeline both sides (results_cross_site_hand.json; NIH side 14,845 epochs, 16 subjects):
+- within-PSU LOSO (W/N1/N2) stays near floor on every rung: kappa 0.07-0.09 (argmax), <= 0.15 with HMM, within-subject
+  AUC W 0.60-0.64, N1 ~0.5, N2 0.60-0.67; time-in-run alone gives 0.075. Nuisance regression adds little (N2 AUC 0.63
+  -> 0.66). So the 15-min, N1-heavy naps are intrinsically hard for epoch features: the floor was the dataset, not only
+  the pipeline.
+- NIH -> PSU: kappa 0.05-0.11 (AUC W ~0.6, N2 0.65-0.69), i.e. as good as a locally trained model; both low.
+- PSU -> NIH: kappa 0.08-0.15 (W 0.61-0.67, N2 0.59-0.68).
+Embeddings on the regressed PSU series (results_cross_site_ssl_nih_rv3.json, _joint_rv3.json):
+- NIH-only encoder (PSU never seen): NIH -> PSU kappa 0.075 (W 0.63, N2 0.68); within-PSU 0.14/0.16 HMM (W 0.69,
+  N2 0.70; best within-PSU result of all); PSU -> NIH kappa 0.32, within-subject AUC W 0.82, N1 0.57, N2 0.85.
+- Joint encoder (49 h of PSU added): NIH -> PSU 0.088 (W 0.66, N2 0.68); within-PSU 0.15 (W 0.70, N2 0.70);
+  PSU -> NIH kappa 0.35, AUC W 0.84, N1 0.57, N2 0.86.
+  Reading: a readout fitted on another site's nap labels stages our nights' W/N1/N2 well through the embedding; the
+  reverse is capped by the naps' own ceiling (within-PSU kappa <= 0.16 for everything).
+Does the second site's unlabelled data help ds005127? (results_ssl_probe_joint.json, results_ssl_probe_strict_joint.json)
+- transductive: N3 +0.175, REM +0.021 (up +0.037, t +0.039), kappa 0.472, embedding REM AUC 0.873 (NIH-only: +0.172,
+  +0.018, 0.478, 0.864): unchanged.
+- strict: N3 +0.156 [+0.118, +0.196] 12/12, REM -0.000 [-0.017, +0.019] (up +0.016, t +0.018), contrast +0.162, kappa
+  0.473, embedding alone REM 0.803 / N3 0.935 (NIH-only strict: +0.147, -0.004, 0.455, 0.781 / 0.926). The embedding
+  itself improves a little with 1.7x data (kappa +0.02, REM AUC +0.02); what BOLD adds beyond the recorded signals does
+  not move. Scaling verdict: no case for piling on unlabelled resting-state corpora for the paper's question.
+Next (running): nih_within W/N1/N2 LOSO reference on both feature types, saved predictions for 27, and the strict
+PSU -> NIH number (per-fold joint encoders, --ssl-eval-strict); then decide on a one-sentence Discussion/Limitations
+update (single-site limitation) if it fits in 4 pages.
+
+## 2026-10-20 (17:40): strict cross-site number and draft 21
+Strict PSU -> NIH (55_cross_site.py --ssl-eval-strict; per-fold encoders pretrained on both sites without the held-out
+NIH subject; W/N1/N2 readout fitted on the Penn State labels alone): kappa 0.29 [0.24, 0.34], within-subject AUC
+W 0.815, N1 0.556, N2 0.840; within-NIH LOSO W/N1/N2 reference with the same encoders: kappa 0.40, W 0.843, N1 0.693,
+N2 0.872. Transductive versions: 0.32-0.35 vs 0.42 (NIH-only and joint encoders). Hand features, within-NIH W/N1/N2
+reference: kappa 0.13-0.23 (rv3 rungs). So wake and N2 transfer from another site's short scans nearly at the
+within-site level; N1 does not (0.56 vs 0.69). Within-PSU kappa <= 0.16 for every feature set (argmax max 0.144);
+NIH -> PSU <= 0.11.
+Draft 21 (dreams/paper_v2_draft21_2026-10-20.pdf, paper_isbi/main_v2_draft21.tex): the Limitations sentence "12
+subjects from one site" now reports the strict transfer (AUC 0.815 W, 0.840 N2 against 0.843, 0.872 within site; the
+short scans stage poorly, within-site kappa <= 0.16, so N3 and REM transfer are untested); ds003768 added to the
+compliance statement. Room made by trimming: the F1-by-stage clause, "0.155 with 200 parcels and FC" (still in
+Fig. 1c), "subject-grouped inner CV", "pulse-oximeter and belt", "its posteriors are smoother" clause; Figure 1 height
+1.50 -> 1.40 in, panel-b counts side by side (derivative | minimal; the stacked counts collided). Abstract unchanged,
+submission_form.txt stands. 26 has a guarded cross-site block (cs* macros, asserts on the claims); 27 recomputes the
+strict AUCs and kappas from predictions_cross_site_ssl_strict_joint.npz and bounds the within-PSU maximum. 4 pages,
+0 overfull, 0 undefined, fonts embedded, 428 checks ALL PASS.
+Scaling verdict (for the follow-up write-up): 1.7x pretraining data from a second site improves the embedding itself
+slightly (strict kappa 0.455 -> 0.473, REM AUC 0.781 -> 0.803) but leaves what BOLD adds beyond the recorded signals
+unchanged (strict N3 +0.147 -> +0.156, REM -0.004 -> -0.000). No public sleep-scored fMRI beyond ds003768/ds005127
+(ds006163 embargoed to 2028); unlabelled resting-state scaling not pursued.

@@ -38,7 +38,7 @@ def main():
     A = json.load(open(BASE / "results_v2_afni.json"))
     Rw = json.load(open(BASE / "results_v2_raw.json"))
     MT = json.load(open(BASE / "results_matched.json"))
-    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(7.0, 1.50), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92]))   # draft 19: brain panel dropped (in the text as a number)
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(7.0, 1.40), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92]))   # draft 19: brain panel dropped (in the text as a number)
     ys = list(range(len(STAGES)))[::-1]
     auc = A["auc_ws"]
 
@@ -78,12 +78,12 @@ def main():
             bx.plot([lo, hi], [y + dy] * 2, color=col, lw=1.3 if filled else 0.9, solid_capstyle="round", zorder=2)
             bx.scatter([r["ws_mean"]], [y + dy], s=20 if filled else 14, marker="D", zorder=3, linewidth=0.9,
                        facecolor=col if filled else "white", edgecolor=col)
-            bx.text(0.252, y + dy, f"{r['n_pos']}/{r['n_subj']}", va="center", ha="right", fontsize=7,
-                    color=INK if sig else INK2, bbox=dict(facecolor="white", edgecolor="none", pad=0.4))
+            bx.text(0.233 if filled else 0.292, y, f"{r['n_pos']}/{r['n_subj']}", va="center", ha="right", fontsize=6,
+                    color=INK if filled else INK2, bbox=dict(facecolor="white", edgecolor="none", pad=0.3))   # side by side: derivative | minimal
         bx.scatter([], [], s=20 if filled else 14, marker="D", facecolor=INK2 if filled else "white",
                    edgecolor=INK2 if filled else MUTED, label=lab)
     bx.set_yticks(ys, STAGES)
-    bx.set_xlim(-0.075, 0.255)
+    bx.set_xlim(-0.075, 0.294)
     bx.set_ylim(-0.6, 4.75)
     bx.set_xlabel(r"$\Delta$AUC, BOLD added to non-BOLD")
     bx.grid(axis="x", color=GRID, lw=0.5)
@@ -92,7 +92,7 @@ def main():
         bx.spines[sp].set_visible(False)
     bx.legend(loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=1, frameon=False, fontsize=7,
               handletextpad=0.2, columnspacing=0.9, borderaxespad=0.1)
-    bx.text(0.252, 4.6, "n > 0", ha="right", va="bottom", fontsize=7, color=INK2)
+    bx.text(0.292, 4.6, "n > 0", ha="right", va="bottom", fontsize=6, color=INK2)
     bx.text(DELTA + 0.004, 4.52, r"$\delta$", ha="left", va="center", fontsize=7, color=INK2)
     bx.text(-0.04, 1.2, "b", transform=bx.transAxes, fontsize=9, fontweight="bold", va="top")
 

@@ -134,9 +134,9 @@ def time_block_mask(B, rng, frac=0.4, n_blocks=2):
     return m
 
 
-def pretrain(epochs=80, batch=128, lr=3e-4, exclude=None, smoke=False, save_every=0, tag=""):
+def pretrain(epochs=80, batch=128, lr=3e-4, exclude=None, smoke=False, save_every=0, tag="", windows="ssl_windows.npz"):
     dev = torch.device("mps" if torch.backends.mps.is_available() and not smoke else "cpu")
-    Z = np.load(BASE / "ssl_windows.npz", allow_pickle=True)
+    Z = np.load(BASE / windows, allow_pickle=True)            # ssl_windows.npz, or a joint corpus from 55_cross_site.py
     X, M, subj = Z["X"], Z["M"], Z["subj"].astype(str)
     if exclude:
         keep = subj != exclude
@@ -193,7 +193,7 @@ def pretrain(epochs=80, batch=128, lr=3e-4, exclude=None, smoke=False, save_ever
             emb_std = float(pooled.std(0).mean())
         log.append(dict(epoch=epch + 1, loss=tot / n, emb_std=emb_std, seconds=time.time() - t0))
         print(f"  epoch {epch + 1}/{epochs} loss {tot / n:.4f} emb_std {emb_std:.3f} ({time.time() - t0:.0f} s)", flush=True)
-        state = dict(enc=enc.state_dict(), tgt=tgt.state_dict(), pred=pred.state_dict(), epoch=epch + 1, exclude=exclude)
+        state = dict(enc=enc.state_dict(), tgt=tgt.state_dict(), pred=pred.state_dict(), epoch=epch + 1, exclude=exclude, windows=windows)
         torch.save(state, BASE / ("ssl_checkpoint_smoke.pt" if smoke else f"ssl_checkpoint{tag}.pt"))
         if save_every and (epch + 1) % save_every == 0 and not smoke:
             torch.save(state, BASE / f"ssl_checkpoint{tag}_ep{epch + 1}.pt")
@@ -306,9 +306,10 @@ def probe_strict(tag="_ex_"):
         R["hmm"][k] = dict(kappa=met["kappa"], f1=met["f1"], kappa_ci=e.boot_kappa(y, pred, s))
         print(f"  strict HMM kappa {k:8s} {met['kappa']:.3f}", flush=True)
     print("  strict emb alone AUC", {st: round(v, 3) for st, v in R["auc_ws"]["emb"].items()}, flush=True)
-    (BASE / "results_ssl_probe_strict.json").write_text(json.dumps(R, indent=1))
-    np.savez_compressed(BASE / "predictions_ssl_probe_strict.npz", y=y, subj=s, run=rn, epoch=ep, **{"proba__" + k: v.astype(np.float32) for k, v in P.items()}, **HP)
-    print("saved results_ssl_probe_strict.json")
+    suf = "" if tag == "_ex_" else tag.replace("_ex_", "")          # "_joint_ex_" -> results_ssl_probe_strict_joint.json
+    (BASE / f"results_ssl_probe_strict{suf}.json").write_text(json.dumps(R, indent=1))
+    np.savez_compressed(BASE / f"predictions_ssl_probe_strict{suf}.npz", y=y, subj=s, run=rn, epoch=ep, **{"proba__" + k: v.astype(np.float32) for k, v in P.items()}, **HP)
+    print(f"saved results_ssl_probe_strict{suf}.json")
 
 
 def main():
@@ -322,14 +323,15 @@ def main():
     ap.add_argument("--save-every", type=int, default=0, help="also keep a checkpoint every K epochs (ssl_checkpoint<tag>_epK.pt)")
     ap.add_argument("--tag", default="", help="suffix for this pretraining run's files, e.g. _long")
     ap.add_argument("--probe-checkpoint", default=None, help="probe this checkpoint file instead of ssl_checkpoint.pt")
-    ap.add_argument("--probe-strict", action="store_true", help="per-fold encoders pretrained without the held-out subject (ssl_checkpoint_ex_<sub>.pt)")
+    ap.add_argument("--probe-strict", action="store_true", help="per-fold encoders pretrained without the held-out subject (ssl_checkpoint<tag><sub>.pt; --tag default _ex_)")
+    ap.add_argument("--windows", default="ssl_windows.npz", help="pretraining corpus (55_cross_site.py --ssl-build writes ssl_windows_joint_<src>.npz)")
     a = ap.parse_args()
     if a.probe_strict:
-        probe_strict()
+        probe_strict(a.tag or "_ex_")
     if a.build:
         build(a.smoke)
     if a.pretrain:
-        pretrain(epochs=a.epochs, exclude=a.exclude_subject, smoke=a.smoke, save_every=a.save_every, tag=a.tag)
+        pretrain(epochs=a.epochs, exclude=a.exclude_subject, smoke=a.smoke, save_every=a.save_every, tag=a.tag, windows=a.windows)
     if a.probe:
         probe(a.smoke, a.probe_checkpoint)
 
