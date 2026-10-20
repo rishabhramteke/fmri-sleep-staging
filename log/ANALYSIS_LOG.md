@@ -758,3 +758,9 @@ request), tables at >= 7 pt, abstract additions (subcortical secondary, decoded 
 per-item count of the 21 variants. 4 pages, 0 overfull, fonts embedded, 435 checks ALL PASS. submission_form.txt
 abstract updated (198 words). Review loop stopped: four independent cold reviews give the same scores; each round
 lists new requests rather than unresolved old ones.
+
+## 2026-10-21: draft 24 = draft 23 with the new title (author's decision)
+Title: "Whole-night fMRI sleep staging: BOLD adds far more to deep sleep than to REM" (both latest cold reviews asked
+to scope the title; the author chose this wording). Updated in main.tex, submission_form.txt and the release README.
+4 pages, 0 overfull. Snapshot dreams/paper_v2_draft24_2026-10-21.pdf. Asking the ds005127 authors for the
+derivative's nuisance matrix: not pursued (no time before the deadline).

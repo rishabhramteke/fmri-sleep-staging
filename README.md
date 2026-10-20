@@ -1,4 +1,4 @@
-# Whole-night fMRI sleep staging: BOLD adds to deep sleep, little to REM
+# Whole-night fMRI sleep staging: BOLD adds far more to deep sleep than to REM
 
 Code, results, per-epoch predictions and the dated analysis log for the ISBI 2027 submission of the same title
 (Rishabh Ramteke, independent researcher). Licence: MIT (code); the data are not redistributed here. Data: OpenNeuro ds005127 (v2.0.2,

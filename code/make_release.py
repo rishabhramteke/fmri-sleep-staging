@@ -38,7 +38,7 @@ CODE = ["03_fetch_sleep_scoring.py", "06_preprocess.py", "06b_raw_v2.py", "07_fe
         "make_release.py"]
 PAPER = ["numbers.tex", "tab_ladder.tex", "tab_robust.tex", "figures/fig_gain_v2.pdf"]
 
-README = """# Whole-night fMRI sleep staging: BOLD adds to deep sleep, little to REM
+README = """# Whole-night fMRI sleep staging: BOLD adds far more to deep sleep than to REM
 
 Code, results, per-epoch predictions and the dated analysis log for the ISBI 2027 submission of the same title
 (Rishabh Ramteke, independent researcher). Licence: MIT (code); the data are not redistributed here. Data: OpenNeuro ds005127 (v2.0.2,
