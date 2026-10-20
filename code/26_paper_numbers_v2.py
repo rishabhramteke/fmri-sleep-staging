@@ -81,6 +81,18 @@ def draft10(M, A, W, ma):
         M[f"fone{SN[st]}Bold"] = k2(L["bold"]["f1"][st])
     M["fREMTime"] = k2(L["clock"]["f1"]["REM"])
     assert L["bold"]["f1"]["REM"] == max(L[k]["f1"]["REM"] for k in ("bold", "nonbold", "nonbold+bold", "clock", "physio", "motion")), "text: BOLD alone is the best REM stager"
+    # draft 22: subject-bootstrap 95% CI of BOLD-alone decoded REM F1 (HMM paths saved by 24_experiments_v2.py)
+    from sklearn.metrics import f1_score
+    Zp = np.load(BASE / "predictions_v2_afni.npz", allow_pickle=True)
+    yb, sb, hb = Zp["y"].astype(str), Zp["subj"].astype(str), Zp["hmm__bold"].astype(str)
+    assert abs(f1_score(yb, hb, labels=["REM"], average=None)[0] - L["bold"]["f1"]["REM"]) < 1e-9
+    rng_ = np.random.default_rng(0)
+    subs_ = np.unique(sb); idx_ = {u: np.flatnonzero(sb == u) for u in subs_}
+    bs_ = []
+    for _ in range(2000):
+        ii = np.concatenate([idx_[u] for u in rng_.choice(subs_, len(subs_))])
+        bs_.append(f1_score(yb[ii], hb[ii], labels=["REM"], average=None, zero_division=0)[0])
+    M["foneREMBoldci"] = f"{np.percentile(bs_, 2.5):.2f}, {np.percentile(bs_, 97.5):.2f}"   # an F1, not a gain: no signs
     SCk = json.load(open(BASE / "results_staging_checks.json"))
     r_ = SCk["kappa_all_minus_bold"]
     M["kkdAllBold"], M["kkdAllBoldci"] = sg(r_["diff"], 2), ci(r_["ci"], 2)
@@ -206,7 +218,7 @@ def draft10(M, A, W, ma):
     # ---------------- review of draft 11: decoded F1 gains, kappa vs regularisation, tones, EOG, spectrum
     nbf, alf = L["nonbold"]["f1"], L["nonbold+bold"]["f1"]
     for st in STAGES:
-        M[f"dfone{SN[st]}"] = sg(alf[st] - nbf[st], 2)
+        M[f"dfone{SN[st]}"] = sg(alf[st] - nbf[st], 3)          # three decimals: Table 1 shows rounded F1
     assert max(alf[st] - nbf[st] for st in STAGES) == alf["N3"] - nbf["N3"], "text: decoded F1 gain largest for N3"
     M["kkAllCmin"] = k2(RC["C_sweep"]["0.01"]["kappa_hmm_all"])
     assert RC["C_sweep"]["0.01"]["kappa_hmm_all"] > RC["C_sweep"]["1.0"]["kappa_hmm_all"]
@@ -251,6 +263,7 @@ def draft10(M, A, W, ma):
         f_ = P1["f1ci"][st]
         M[f"dfone{SN[st]}ci"] = ci(f_["ci"], 2)
     M["strREMupT"] = sg(R4["stratified"]["REM"]["t_upper95"])
+    assert R4["stratified"]["REM"]["t_upper95"] > ma["delta"], "abstract: within 1 h bins the REM gain is not inside the margin"
     f = BASE / "results_panel_checks2.json"
     if f.exists():
         P2 = json.load(open(f))
@@ -722,8 +735,8 @@ def main():
             ("Non-BOLD + BOLD", "nonbold+bold", "nonbold+bold")]
     best = max(L[k]["kappa"] for _, k, _ in rows)
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.6pt}",
-           "\\caption{Five-class staging (derivative, leave-one-subject-out, one HMM decoder). AUC: within-subject "
-           "one-vs-rest per epoch; last row, in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
+           "\\caption{Five-class staging (derivative, leave-one-subject-out). AUC: within-subject one-vs-rest; "
+           "in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
            "}",
            "\\label{tab:ladder}", "\\begin{tabular}{@{}lcccc@{}}", "\\toprule",
            " & \\multicolumn{2}{c}{after HMM} & \\multicolumn{2}{c}{before HMM: AUC} \\\\",
@@ -815,7 +828,7 @@ def main():
     if tuned("hgb", "main"):
         rob.append(("Boosted trees, nested-tuned", tuned("hgb", "main"), "spec"))
     rob.append((f"{len(variants)} variants$^\\ddagger$", "RANGE", "spec"))
-    rob += [(f"$+$ 300\\,s context ({BLK['mw']['n_features']})", g_("mw", f"early: {AB}"), "spec"),
+    rob += [(f"$+$ 30--300\\,s context ({BLK['mw']['n_features']})", g_("mw", f"early: {AB}"), "spec"),
             (f"$+$ subcortex ({BLK['subc']['n_features']}), early", g_("subc", f"early: {AB}"), "spec"),
             ("\\quad late fusion", g_("subc", f"late: {AB}"), "spec"),
             ("\\quad stacked", g_("subc", f"stack: {AB}"), "spec"),
@@ -863,6 +876,11 @@ def main():
     for st in ("N3", "REM"):
         M[f"leStrat{SN[st]}"] = sg(LX["stratified_1h"]["nb+enc_nn - nb_nn"][st]["mean"])
         M[f"leLateStrat{SN[st]}"] = sg(LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"][st]["mean"])
+    # abstract: "up to leLateStratREM for a CNN encoder within 1 h bins"; Discussion: "at most about five hundredths across
+    # the night and seven within 1 h bins" (the largest REM gains the paper reports, across the night and within bins)
+    rem_within = [LX["stratified_1h"]["nb+enc_nn - nb_nn"]["REM"]["mean"], LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"]["REM"]["mean"]]
+    assert max(rem_within) == LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"]["REM"]["mean"] and round(max(rem_within), 2) == 0.07
+    assert round(max(LX["gain"]["late(nb_lr,enc) - nb_lr"]["per_stage"]["REM"]["ws_mean"], g_le["REM"]["ws_mean"]), 2) == 0.05
     # text: "they add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
     lrn = [g_le, g_ssl]                       # the two specification rows; leLr*/leLate* are reported separately
     M["lrnRemMin"], M["lrnRemMax"] = sg(min(r["REM"]["ws_mean"] for r in lrn)), sg(max(r["REM"]["ws_mean"] for r in lrn))
@@ -990,14 +1008,17 @@ def main():
     M["nSpecRemCiPosIn"] = str(sum(r["REM"]["ws_ci"][0] > 0 for (lab, r), ins in zip(spec, _inside) if ins))
     assert int(M["nSpecRemCiPosOut"]) + int(M["nSpecRemCiPosIn"]) == int(M["nSpecRemCiPos"])
     print("  specification rows below every-subject N3>REM:", [(lab, c) for (lab, r), c in zip(spec, cts) if c[0] < c[1]])
+    lows_ = [inc["N3"]["ws_ci"][0] for _, inc, _g in rob if not (isinstance(inc, str)) and inc.get("N3") is not None
+             and inc["N3"]["ws_ci"][0] > 0] + [r["N3"]["ws_ci"][0] for _, r in variants]
+    M["tabNthreeLoMin"], M["tabNthreeLoMax"] = f"{min(lows_):.2f}", f"{max(lows_):.2f}"
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.4pt}",
-           "\\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "
-           "above zero. $^\\dagger$: both one-sided 95\\% upper bounds (bootstrap, $t$) below "
+           "\\caption{AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "
+           f"above zero (bold $\\Delta_\\mathrm{{N3}}$: lower bounds {M['tabNthreeLoMin']}--{M['tabNthreeLoMax']}). $^\\dagger$: both one-sided 95\\% upper bounds (bootstrap, $t$) below "
            f"$\\delta={ma['delta']:.2f}$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the "
-           f"{len(spec)} specifications; tests concern the main row only. $^\\ddagger$Global "
-           "signal regressed/added, aCompCor, $+$6\\,s shift, within-run z, slow physiology regressed, detrending, "
-           "image-based motion, night fraction/index, cross-night training, uncensored epochs, best-aligned/non-drifting "
-           "runs, 1 or 5\\,min around awakenings removed, lagged physiology, no somatomotor network, $C$ 0.01--10.}",
+           f"{len(spec)} specifications. $^\\ddagger$Global "
+           "signal regressed/added, aCompCor, $+$6\\,s, within-run z, slow physiology regressed, detrending, "
+           "image-based motion, night fraction/index, cross-night training, uncensored, best-aligned/non-drifting "
+           "runs, awakenings removed, lagged physiology, no somatomotor, $C$ 0.01--10.}",
            "\\label{tab:robust}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
            "Variant & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ & \\begin{tabular}{@{}c@{}}N3$>$\\\\REM\\end{tabular} \\\\", "\\midrule"]
 
@@ -1011,7 +1032,7 @@ def main():
     prev = None
     for i, (label, inc, g) in enumerate(rob):
         if prev is not None and (g != prev or i == 1 or (isinstance(inc, str) and inc == "RANGE")
-                                 or label.startswith("$+$ 300")):
+                                 or label.startswith("$+$ 30--300")):
             out.append("\\midrule")
         prev = g
         if isinstance(inc, str) and inc == "RANGE":

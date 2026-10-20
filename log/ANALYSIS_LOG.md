@@ -579,8 +579,8 @@ unchanged), 406 checks ALL PASS, fonts embedded. Figure 1 height 1.95 -> 1.60 in
 (161 words, 47 specifications, REM -0.031 to +0.048 "learned representations included").
 
 ## 2026-10-20 (03:20): cold review of draft 18 -> draft 19
-Review: dreams/review_cold_2026-10-20_draft18.md (scores novelty 3, soundness 3, clarity 2, significance 3,
-confidence 4). Its nine MUST-FIX items were consistency and wording defects, all fixed in draft 19:
+Review: dreams/review_cold_2026-10-20_draft18.md
+Its nine MUST-FIX items were consistency and wording defects, all fixed in draft 19:
 (a) learned-representation ranges now the two Table 2 rows (+0.018 to +0.048 REM, +0.152 to +0.172 N3; the encoder's
 late-fusion +0.052 and 1 h-bin +0.062 are named separately); (b) the abstract's own-pipeline range now includes the
 ladder rungs (-0.012 to +0.050); (c) the N3 gain over the 10 contrast subjects is given (+0.148); (d) the 1 h-bin REM
@@ -703,3 +703,38 @@ Scaling verdict (for the follow-up write-up): 1.7x pretraining data from a secon
 slightly (strict kappa 0.455 -> 0.473, REM AUC 0.781 -> 0.803) but leaves what BOLD adds beyond the recorded signals
 unchanged (strict N3 +0.147 -> +0.156, REM -0.004 -> -0.000). No public sleep-scored fMRI beyond ds003768/ds005127
 (ds006163 embargoed to 2028); unlabelled resting-state scaling not pursued.
+
+## 2026-10-20 (18:30): cold review of draft 21 -> draft 22
+Review: dreams/review_cold_2026-10-20_draft21.md. Nine MUST-FIX items, all addressed in draft 22
+(dreams/paper_v2_draft22_2026-10-20.pdf, paper_isbi/main_v2_draft22.tex); title kept (author's decision):
+1. N3 claim scoped to the distributed preprocessing: abstract opens "With the dataset authors' preprocessing", the own
+   pipelines are "but only -0.012 to +0.050"; contribution (iii) "across 47 specifications of the distributed
+   preprocessing"; Discussion "our own pipelines recover at most +0.050 (minimal pipeline +0.039 [-0.003, +0.086])".
+2. Abstract ranges traceable: -0.012 is the ladder's affine + GM rung (now "all rungs -0.012 to +0.044" in Results),
+   +0.050 the minimal-pipeline trees (Table 2); REM range "-0.031 to +0.048 across specifications, up to +0.073 for a
+   CNN encoder within 1 h bins" (late fusion within bins = the largest REM gain reported; guarded in 26).
+3. REM: abstract "inside the margin for the planned across-night model, not within 1 h bins"; CI above zero in 7 of
+   47; Discussion drops the time-of-night mechanism ("most of BOLD's REM information is shared with the recorded
+   signals, but a small REM-specific part is not excluded"; seven hundredths within bins).
+4. "Pre-specified" -> "planned after a pilot on the same subjects"; Methods: the log entry of 14 Oct 2026 fixed the
+   statistic with its bootstrap bound against delta and Holm (the t bound came later); delta = a fifth of the non-BOLD
+   REM 1-AUC; the planned time control was the second half (t bound +0.035, too imprecise), 1 h bins added later;
+   the N3-REM contrast was in the code's first run on the derivative (made paired after a bug fix).
+5. Cross-site sentence rewritten: single-site limitation stands; strict per-fold self-supervised encoders, W/N1/N2
+   AUC 0.815/0.556/0.840, kappa 0.29 [0.24, 0.34] vs 0.843/0.693/0.872, kappa 0.40 within site; tests neither N3,
+   REM nor BOLD's gain; ds003768 in Data (10-15 min rest and nap scans) and cited (Gu et al. 2023, Data Brief 48).
+6. Eyes: the eye block adds +0.063 to N3 and lowers BOLD's N3 gain from +0.142 to +0.083 (97% of epochs; stronger
+   baseline +0.118 -> +0.084); stronger baselines' own performance (N3 AUC 0.785 LR, 0.909 BiGRU; kappa 0.23, 0.35).
+7. Numbers: derivative on the ladder's 12,694 epochs recomputed (+0.0851 vs +0.0852 on 13,448); the undrawn motion
+   level dropped from the Fig. 1c sentence; "262 N2/N3-to-wake transitions"; context block defined (8 amplitude series
+   x 5 windows + 21 FC over 300 s); amplitude over the epoch's 30 s; "best stager in Table 1".
+8. Fig. 1: all text >= 7 pt, both count columns labelled (deriv., min.), panel c encodings, subjects and short labels
+   in the caption; height 1.32 in.
+9. Table 2 caption gives the bold N3 lower bounds (0.02-0.15); decoded F1: BOLD alone 0.54 [0.42, 0.64]; added to
+   non-BOLD +0.307 [+0.24, +0.38] for N3 and +0.068 [+0.02, +0.11] for REM (three decimals; Table 1 shows rounded F1).
+Also: JEPA cited (Assran et al. CVPR 2023); article numbers printed as "Art. no."; Maquet 1996 replaced by Hong 2009
+for REM's regional activity (space). Space: intro paragraph 2, subcortex rule, stronger-baseline feature list,
+tempering clause, physiology-alone across/within-bin clause, band/tSNR clause, Fig. 1c sentence compressed; tighter
+float and bibliography spacing in the preamble (margins and fonts unchanged). 4 pages, 0 overfull, fonts embedded,
+27_verify_v2.py 435 checks ALL PASS (new: CNN within-bin REM gains, decoded F1 and its bootstrap CI).
+submission_form.txt abstract updated (195 words). A fresh cold review of draft 22 is running.

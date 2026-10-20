@@ -38,7 +38,7 @@ def main():
     A = json.load(open(BASE / "results_v2_afni.json"))
     Rw = json.load(open(BASE / "results_v2_raw.json"))
     MT = json.load(open(BASE / "results_matched.json"))
-    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(7.0, 1.40), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92]))   # draft 19: brain panel dropped (in the text as a number)
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(7.0, 1.32), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92]))   # draft 19: brain panel dropped (in the text as a number)
     ys = list(range(len(STAGES)))[::-1]
     auc = A["auc_ws"]
 
@@ -78,12 +78,12 @@ def main():
             bx.plot([lo, hi], [y + dy] * 2, color=col, lw=1.3 if filled else 0.9, solid_capstyle="round", zorder=2)
             bx.scatter([r["ws_mean"]], [y + dy], s=20 if filled else 14, marker="D", zorder=3, linewidth=0.9,
                        facecolor=col if filled else "white", edgecolor=col)
-            bx.text(0.233 if filled else 0.292, y, f"{r['n_pos']}/{r['n_subj']}", va="center", ha="right", fontsize=6,
+            bx.text(0.238 if filled else 0.306, y, f"{r['n_pos']}/{r['n_subj']}", va="center", ha="right", fontsize=7,
                     color=INK if filled else INK2, bbox=dict(facecolor="white", edgecolor="none", pad=0.3))   # side by side: derivative | minimal
         bx.scatter([], [], s=20 if filled else 14, marker="D", facecolor=INK2 if filled else "white",
                    edgecolor=INK2 if filled else MUTED, label=lab)
     bx.set_yticks(ys, STAGES)
-    bx.set_xlim(-0.075, 0.294)
+    bx.set_xlim(-0.075, 0.308)
     bx.set_ylim(-0.6, 4.75)
     bx.set_xlabel(r"$\Delta$AUC, BOLD added to non-BOLD")
     bx.grid(axis="x", color=GRID, lw=0.5)
@@ -92,13 +92,15 @@ def main():
         bx.spines[sp].set_visible(False)
     bx.legend(loc="lower left", bbox_to_anchor=(-0.02, 1.0), ncol=1, frameon=False, fontsize=7,
               handletextpad=0.2, columnspacing=0.9, borderaxespad=0.1)
-    bx.text(0.292, 4.6, "n > 0", ha="right", va="bottom", fontsize=6, color=INK2)
+    bx.text(0.238, 4.42, "deriv.", ha="right", va="bottom", fontsize=7, color=INK2)    # n > 0 per pipeline
+    bx.text(0.306, 4.42, "min.", ha="right", va="bottom", fontsize=7, color=INK2)
+    bx.set_xticks([0.0, 0.1, 0.2])
     bx.text(DELTA + 0.004, 4.52, r"$\delta$", ha="left", va="center", fontsize=7, color=INK2)
     bx.text(-0.04, 1.2, "b", transform=bx.transAxes, fontsize=9, fontweight="bold", va="top")
 
     # ---- c: gain vs BOLD quality, identical epochs and non-BOLD model
-    levels = [("raw84amp", "minimal"), ("rv84amp", "realigned"), ("rv84phys", "+ physio"), ("afni84", "derivative"),
-              ("afni", "+ 200, FC"), ("raw", "min. + FC")]
+    levels = [("raw84amp", "min."), ("rv84amp", "realign."), ("rv84phys", "+ phys."), ("afni84", "deriv."),
+              ("afni", "200+FC"), ("raw", "min.+FC")]
     # the first three form the path amplitude -> derivative amplitude -> derivative 200+FC; "Own 84+FC" adds
     # FC to our pipeline, off that path, so it stands apart behind a separator
     xs = [0, 1, 2, 3, 4, 5.3]
@@ -120,7 +122,7 @@ def main():
             cx.text(4 + 0.2, ms[4] + 0.012, st, va="center", ha="left", fontsize=7, color=INK)
         else:
             cx.text(3.55, -0.047, st, va="center", ha="center", fontsize=7, color=INK)
-    cx.set_xticks(xs, [l for _, l in levels], fontsize=6, rotation=35, ha="right", rotation_mode="anchor")
+    cx.set_xticks(xs, [l for _, l in levels], fontsize=7, rotation=30, ha="right", rotation_mode="anchor")
     cx.tick_params(axis="x", pad=1.5)
     cx.set_xlim(-0.4, 5.6)
     cx.set_ylim(-0.07, 0.185)
@@ -131,7 +133,7 @@ def main():
         cx.spines[sp].set_visible(False)
     cx.set_title(r"Same epochs, $\Delta$AUC", fontsize=7, color=INK, loc="left", pad=3)
     cx.text(-0.22, 1.2, "c", transform=cx.transAxes, fontsize=9, fontweight="bold", va="top")
-    fig.subplots_adjust(left=0.06, right=0.985, bottom=0.23, top=0.80, wspace=0.42)
+    fig.subplots_adjust(left=0.06, right=0.985, bottom=0.27, top=0.77, wspace=0.42)
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "fig_gain_v2.pdf", dpi=600)       # embeds the brain renders at print resolution
     fig.savefig(OUT / "fig_gain_v2.png", dpi=300)

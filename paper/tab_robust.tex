@@ -2,7 +2,7 @@
 \centering
 \scriptsize
 \setlength{\tabcolsep}{2.4pt}
-\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\% subject-bootstrap CI]. Bold: CI above zero. $^\dagger$: both one-sided 95\% upper bounds (bootstrap, $t$) below $\delta=0.03$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the 47 specifications; tests concern the main row only. $^\ddagger$Global signal regressed/added, aCompCor, $+$6\,s shift, within-run z, slow physiology regressed, detrending, image-based motion, night fraction/index, cross-night training, uncensored epochs, best-aligned/non-drifting runs, 1 or 5\,min around awakenings removed, lagged physiology, no somatomotor network, $C$ 0.01--10.}
+\caption{AUC gain from adding BOLD to non-BOLD, mean [95\% subject-bootstrap CI]. Bold: CI above zero (bold $\Delta_\mathrm{N3}$: lower bounds 0.02--0.15). $^\dagger$: both one-sided 95\% upper bounds (bootstrap, $t$) below $\delta=0.03$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the 47 specifications. $^\ddagger$Global signal regressed/added, aCompCor, $+$6\,s, within-run z, slow physiology regressed, detrending, image-based motion, night fraction/index, cross-night training, uncensored, best-aligned/non-drifting runs, awakenings removed, lagged physiology, no somatomotor, $C$ 0.01--10.}
 \label{tab:robust}
 \begin{tabular}{@{}lccc@{}}
 \toprule
@@ -18,7 +18,7 @@ Boosted trees, nested-tuned & \textbf{0.14} & 0.010 [$-$0.012, 0.035] & 10/10 \\
 \midrule
 21 variants$^\ddagger$ & \textbf{0.11--0.16} & $-$0.028 to 0.001$^\dagger$ & all \\
 \midrule
-$+$ 300\,s context (61) & \textbf{0.16} & $-$0.022 [$-$0.049, 0.007]$^\dagger$ & 10/10 \\
+$+$ 30--300\,s context (61) & \textbf{0.16} & $-$0.022 [$-$0.049, 0.007]$^\dagger$ & 10/10 \\
 $+$ subcortex (50), early & \textbf{0.14} & $-$0.004 [$-$0.034, 0.028]$^\dagger$ & 10/10 \\
 \quad late fusion & \textbf{0.15} & 0.032 [$-$0.004, 0.069] & 10/10 \\
 \quad stacked & \textbf{0.17} & \textbf{0.029} [0.005, 0.056] & 10/10 \\

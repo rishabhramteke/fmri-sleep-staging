@@ -108,6 +108,8 @@ def redact_log(text):
         line = line.replace("(user decision)", "(author's decision)")
         line = re.sub(r" \(\d/\d/\d\)", "", line)
         line = re.sub(r" \(\d(, weak reject|; clarity \d)\)", "", line)
+        line = re.sub(r" \(scores novelty \d, soundness \d, clarity \d, significance \d,$", "", line)   # per-criterion scores
+        line = re.sub(r"^confidence \d\)\. ", "", line)
         out.append(line)
     return "\n".join(out) + "\n"
 

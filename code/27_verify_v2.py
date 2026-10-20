@@ -566,6 +566,45 @@ def main():
               for u in np.unique(ss) if (ys[ss == u] == st).sum() >= 20]
         check("ap" + tag[3:], np.mean(v_), num(M["ap" + tag[3:]]), 6e-4)
 
+    # draft 22: CNN encoder within 1 h bins (joint network; late fusion with the LR non-BOLD model), same binning
+    def strat_(y01, p_, h_):
+        num_ = den_ = 0.0
+        for hb_ in np.unique(np.floor(h_)):
+            b_ = np.floor(h_) == hb_
+            a1, a0 = y01[b_].sum(), (~y01[b_]).sum()
+            if a1 >= 5 and a0 >= 5:
+                num_ += roc_auc_score(y01[b_], p_[b_]) * a1 * a0; den_ += a1 * a0
+        return num_ / den_ if den_ else np.nan
+    LPs = np.load(BASE / "predictions_learned_encoder.npz", allow_pickle=True)
+    assert (LPs["y"].astype(str) == ys).all() and (LPs["subj"].astype(str) == ss).all()
+    late_ = _e.late_fusion(Zs["proba__nonbold"], LPs["proba__enc"], ys, ss)
+    i_ = STAGES.index("REM")
+    for tag, pa_, pb_ in (("leStratREM", LPs["proba__nb+enc"], LPs["proba__nb"]), ("leLateStratREM", late_, Zs["proba__nonbold"])):
+        g_ = []
+        for u in np.unique(ss):
+            m_ = ss == u; y01 = ys[m_] == "REM"
+            if y01.sum() >= 20 and (~y01).sum() >= 20:
+                a_, b_ = strat_(y01, pa_[m_, i_], hrs[m_]), strat_(y01, pb_[m_, i_], hrs[m_])
+                if np.isfinite(a_) and np.isfinite(b_):
+                    g_.append(a_ - b_)
+        check(tag, np.mean(g_), num(M[tag]), 6e-4)
+    # draft 22: decoded F1 (HMM paths): BOLD alone and its subject-bootstrap CI (same seed and order as 26), F1 changes
+    from sklearn.metrics import f1_score as _f1
+    f1r_ = lambda yy, pp, st: _f1(yy, pp, labels=[st], average=None, zero_division=0)[0]
+    hb_, hn_, ha_ = (Zs[k].astype(str) for k in ("hmm__bold", "hmm__nonbold", "hmm__nonbold+bold"))
+    check("foneREMBold", f1r_(ys, hb_, "REM"), num(M["foneREMBold"]), 5.1e-3)
+    for st in ("N3", "REM"):
+        check(f"dfone{SN[st]}", f1r_(ys, ha_, st) - f1r_(ys, hn_, st), num(M[f"dfone{SN[st]}"]), 6e-4)
+    rng_ = np.random.default_rng(0)
+    subs_ = np.unique(ss); idx_ = {u: np.flatnonzero(ss == u) for u in subs_}
+    bs_ = []
+    for _ in range(2000):
+        ii = np.concatenate([idx_[u] for u in rng_.choice(subs_, len(subs_))])
+        bs_.append(f1r_(ys[ii], hb_[ii], "REM"))
+    lo_, hi_ = (float(x_) for x_ in M["foneREMBoldci"].split(","))
+    check("foneREMBoldci lo", np.percentile(bs_, 2.5), lo_, 5.1e-3)
+    check("foneREMBoldci hi", np.percentile(bs_, 97.5), hi_, 5.1e-3)
+
     print("== hand-typed decimals in main.tex (should be none outside comments)")
     tex = [l.split("%")[0] for l in (PAPER / "main.tex").read_text().splitlines()]
     hits = [(i + 1, m.group(0)) for i, l in enumerate(tex) for m in re.finditer(r"(?<![\w\\{])[-+]?\d+\.\d+", l)]
