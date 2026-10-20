@@ -860,7 +860,7 @@ def main():
         M[f"sslBeyond{SN[st]}"] = sg(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_mean"])
         M[f"sslBeyond{SN[st]}ci"] = ci(SSL["gain"]["nb+bold+emb - nb+bold"]["per_stage"][st]["ws_ci"])
     # text: "learned representations add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
-    lrn = [g_le, g_ssl, lx_lr, lx_late]
+    lrn = [g_le, g_ssl]                       # the two specification rows; leLr*/leLate* are reported separately
     M["lrnRemMin"], M["lrnRemMax"] = sg(min(r["REM"]["ws_mean"] for r in lrn)), sg(max(r["REM"]["ws_mean"] for r in lrn))
     M["lrnNthreeMin"], M["lrnNthreeMax"] = sg(min(r["N3"]["ws_mean"] for r in lrn)), sg(max(r["N3"]["ws_mean"] for r in lrn))
     assert all(r["N3"]["ws_mean"] > 3 * r["REM"]["ws_mean"] for r in lrn), "text: N3 gain at least three times the REM gain for every learned representation"
@@ -893,10 +893,17 @@ def main():
     # abstract: "OWNMIN to OWNMAX in our own pipelines": every own-pipeline N3 gain (Fig. 1c levels incl. motion
     # regression and FC, the 16-subject minimal pipeline with LR and trees), each above its REM gain
     own_all = [MT["increment"][k] for k in ("raw84amp", "rv84amp", "rv84phys", "rv84mot", "raw")] + \
-              [inc_w["nonbold+bold - nonbold"], W["hgb"]["increment"]]
+              [inc_w["nonbold+bold - nonbold"], W["hgb"]["increment"]] + \
+              [LD["increment"][k] for k in LD_TAGS if k.startswith("amp_")]          # the ladder's own rungs (49)
     assert all(r["N3"]["ws_mean"] > r["REM"]["ws_mean"] for r in own_all)
     M["ownNthreeMin"] = sg(min(r["N3"]["ws_mean"] for r in own_all))
     M["ownNthreeMax"] = sg(max(r["N3"]["ws_mean"] for r in own_all))
+    # (c) the N3 gain over the subjects eligible for both N3 and REM, on which the N3-REM contrast is formed
+    _h = inc_a["nonbold+bold - nonbold"]
+    _both = [u for u in _h["N3"]["ws_values"] if u in _h["REM"]["ws_values"]]
+    M["ctrNthreeBoth"] = sg(np.mean([_h["N3"]["ws_values"][u] for u in _both]))
+    M["ctrREMBoth"] = sg(np.mean([_h["REM"]["ws_values"][u] for u in _both]))
+    assert abs(np.mean([_h["N3"]["ws_values"][u] - _h["REM"]["ws_values"][u] for u in _both]) - float(M["inter"].replace("$-$", "-").replace("\\xspace", ""))) < 6e-4
     # text: "REM staying inside the margin in all six" stronger-baseline rows
     assert all(r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r, g in rob if g == "strong")
 
@@ -943,6 +950,10 @@ def main():
     assert all(any(k in lab for k in ("late fusion", "Late fusion", "trees", "nested-tuned", "encoder", "embedding")) or lab == "\\quad stacked"
                for lab in out_), out_
     M["nSpecRemOutLearned"] = str(sum(any(k in lab for k in ("encoder", "embedding")) for lab in out_))
+    _inside = [r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r in spec]   # by row, labels repeat
+    M["nSpecRemCiPosOut"] = str(sum(r["REM"]["ws_ci"][0] > 0 for (lab, r), ins in zip(spec, _inside) if not ins))
+    M["nSpecRemCiPosIn"] = str(sum(r["REM"]["ws_ci"][0] > 0 for (lab, r), ins in zip(spec, _inside) if ins))
+    assert int(M["nSpecRemCiPosOut"]) + int(M["nSpecRemCiPosIn"]) == int(M["nSpecRemCiPos"])
     print("  specification rows below every-subject N3>REM:", [(lab, c) for (lab, r), c in zip(spec, cts) if c[0] < c[1]])
     out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.4pt}",
            "\\caption{Within-subject AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "

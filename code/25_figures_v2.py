@@ -38,7 +38,7 @@ def main():
     A = json.load(open(BASE / "results_v2_afni.json"))
     Rw = json.load(open(BASE / "results_v2_raw.json"))
     MT = json.load(open(BASE / "results_matched.json"))
-    fig, (ax, bx, cx, brain) = plt.subplots(1, 4, figsize=(7.0, 1.60), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92, 0.66]))
+    fig, (ax, bx, cx) = plt.subplots(1, 3, figsize=(7.0, 1.50), gridspec_kw=dict(width_ratios=[0.84, 0.88, 0.92]))   # draft 19: brain panel dropped (in the text as a number)
     ys = list(range(len(STAGES)))[::-1]
     auc = A["auc_ws"]
 
@@ -131,25 +131,7 @@ def main():
         cx.spines[sp].set_visible(False)
     cx.set_title(r"Same epochs, $\Delta$AUC", fontsize=7, color=INK, loc="left", pad=3)
     cx.text(-0.22, 1.2, "c", transform=cx.transAxes, fontsize=9, fontweight="bold", va="top")
-    # ---- d: where the N3 information sits (25b_brain_panel.py): per-parcel amplitude AUC, N3, left hemisphere
-    brain.axis("off")
-    brain.text(-0.04, 1.2, "d", transform=brain.transAxes, fontsize=9, fontweight="bold", va="top")
-    brain.set_title("N3 vs rest, amplitude", fontsize=7, color=INK, loc="center", pad=3)
-    fig.subplots_adjust(left=0.05, right=0.985, bottom=0.21, top=0.81, wspace=0.42)
-    pos = brain.get_position()
-    h = (pos.height - 0.07) / 2
-    for r, view in enumerate(("lateral", "medial")):
-        ia = fig.add_axes([pos.x0, pos.y0 + 0.07 + (1 - r) * h, pos.width, h])
-        im = plt.imread(OUT / f"brain_N3_{view}.png")
-        rows_, cols_ = np.nonzero(im[..., 3] > 0.05)                 # crop the transparent margin of the 3-D render
-        ia.imshow(im[rows_.min():rows_.max() + 1, cols_.min():cols_.max() + 1], interpolation="none")
-        ia.axis("off")
-        ia.text(-0.03, 0.5, view, transform=ia.transAxes, fontsize=7, color=INK2, rotation=90, ha="right", va="center")
-    import matplotlib as mpl
-    cax = fig.add_axes([pos.x0 + 0.12 * pos.width, pos.y0 + 0.0, 0.76 * pos.width, 0.035])
-    cb = fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0.3, 0.7), cmap="RdBu_r"), cax=cax, orientation="horizontal")
-    cb.set_ticks([0.3, 0.5, 0.7]); cb.ax.tick_params(labelsize=7, length=2, width=0.5); cb.outline.set_linewidth(0.4)
-    cb.set_label("below 0.5: lower in N3", fontsize=7, labelpad=1)
+    fig.subplots_adjust(left=0.06, right=0.985, bottom=0.23, top=0.80, wspace=0.42)
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "fig_gain_v2.pdf", dpi=600)       # embeds the brain renders at print resolution
     fig.savefig(OUT / "fig_gain_v2.png", dpi=300)

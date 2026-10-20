@@ -577,3 +577,21 @@ Draft 18: dreams/paper_v2_draft18_2026-10-20.pdf, paper_isbi/main_v2_draft18.tex
 (spconf's \section penalty of -300 had been breaking the last column early; set to +150 in the preamble, headings
 unchanged), 406 checks ALL PASS, fonts embedded. Figure 1 height 1.95 -> 1.60 in. submission_form.txt abstract updated
 (161 words, 47 specifications, REM -0.031 to +0.048 "learned representations included").
+
+## 2026-10-20 (03:20): cold review of draft 18 -> draft 19
+Review: dreams/review_cold_2026-10-20_draft18.md (scores novelty 3, soundness 3, clarity 2, significance 3,
+confidence 4). Its nine MUST-FIX items were consistency and wording defects, all fixed in draft 19:
+(a) learned-representation ranges now the two Table 2 rows (+0.018 to +0.048 REM, +0.152 to +0.172 N3; the encoder's
+late-fusion +0.052 and 1 h-bin +0.062 are named separately); (b) the abstract's own-pipeline range now includes the
+ladder rungs (-0.012 to +0.050); (c) the N3 gain over the 10 contrast subjects is given (+0.148); (d) the 1 h-bin REM
+upper bound +0.031 is labelled "above delta: not inside the margin"; (e) the derivative-variance numbers are defined
+(R2 of slow physiological regressors vs time-shifted copies); (f) "hence the pre-specified test ..." reworded;
+(g) abstract: "on average in all 47 specifications and in every subject in 44 of them"; (h) CI above zero in 7 of the
+14 exceptions (an 8th bold row sits inside the margin); (i) Discussion: "five hundredths across the night (six within
+1 h bins)". Also: the N3 signature is shown to exist without any regression (89% of parcels in the minimal pipeline:
+not a regression-fit artefact), the self-supervised pretraining is disclosed as including held-out subjects, and
+Figure 1 lost its brain panel (unreadable at print size; its number is in the text). Layout: spconf's \section broke
+the last column early before the two short closing sections; those two headings are now set by \plainsection (same
+look, numbered via the section counter). One citation (altmann2016) dropped to make room. 4 pages, 0 overfull,
+406 checks ALL PASS. Snapshot dreams/paper_v2_draft19_2026-10-20.pdf. Review loop stopped here (3-4 for days).
+Strict (held-out-subject-excluded) pretraining runs in the background for the follow-up; not needed for the paper.
