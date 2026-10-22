@@ -9,6 +9,7 @@ tab_ladder.tex. Also lists every decimal number typed directly into main.tex, wh
     python 27_verify_v2.py
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -81,15 +82,21 @@ def main():
             check("kdBoldTag", k, num(M["kdBoldTag"]), 6e-4)
             k = cohen_kappa_score(y, Z["hmm__bold"]) - cohen_kappa_score(y, Z["hmm__nonbold"])
             check("kdBoldNb", k, num(M["kdBoldNb"]), 6e-4)
+            from sklearn.metrics import f1_score
             # Table 1 kappa cells
             tab = (PAPER / "tab_ladder.tex").read_text()
-            for label, key in [("BOLD (", "bold"), ("Non-BOLD (", "nonbold"), ("Head motion", "motion"),
-                               ("Physiology (", "physio"), ("Elapsed time", "clock"),
-                               ("7-network FC", "netFC-LR (after Tagliazucchi 2012)"), ("Non-BOLD + BOLD", "nonbold+bold")]:
+            for label, key in [("BOLD (", "bold"), ("Non-BOLD (", "nonbold"), ("Motion (", "motion"),
+                               ("Physiology (", "physio"), ("Time (", "clock"),
+                               ("Network FC", "netFC-LR (after Tagliazucchi 2012)"), ("Non-BOLD$+$BOLD", "nonbold+bold")]:
                 row = next(l for l in tab.splitlines() if l.startswith(label))
-                cellk = float(re.search(r"(\d\.\d{2})", row).group(1))      # two decimals in draft 10
+                cells = [c.strip() for c in row.split("&")]
+                cellk = float(re.search(r"(\d\.\d{2})", cells[1]).group(1))      # kappa, two decimals
                 check(f"Table1 {key[:20]}", cohen_kappa_score(y, Z[f"hmm__{key}"]), cellk, 5.1e-3)
-            row = next(l for l in tab.splitlines() if l.startswith("Non-BOLD + BOLD"))
+                # draft 25: decoded F1 of N3 and of REM (columns 3 and 4)
+                for col, st in ((2, "N3"), (3, "REM")):
+                    f1_ = f1_score(y, Z[f"hmm__{key}"], labels=[st], average=None, zero_division=0)[0]
+                    check(f"Table1 F1 {st} {key[:12]}", f1_, float(cells[col]), 5.1e-3)
+            row = next(l for l in tab.splitlines() if l.startswith("Non-BOLD$+$BOLD"))
             gains = [num(g_) for g_ in re.findall(r"\(([^)]*)\)", row)]       # the headline gains in parentheses
             for st, g_ in zip(("N3", "REM"), gains):
                 i_ = STAGES.index(st)
@@ -132,9 +139,9 @@ def main():
         check(f"kArg{tag}", cohen_kappa_score(y, np.array(STAGES)[Z[f"proba__{'bold' if tag == 'Bold' else 'nonbold+bold'}"].argmax(1)]),
               num(M[f"kArg{tag}"]), 6e-4)
     tab = (PAPER / "tab_ladder.tex").read_text()
-    for label, key in [("BOLD (", "bold"), ("Non-BOLD + BOLD", "nonbold+bold"), ("Non-BOLD (", "nonbold")]:
+    for label, key in [("BOLD (", "bold"), ("Non-BOLD$+$BOLD", "nonbold+bold"), ("Non-BOLD (", "nonbold")]:
         row = next(l for l in tab.splitlines() if l.startswith(label))
-        cell = float(row.split("&")[2])
+        cell = float(row.split("&")[3])                                   # draft 25: F1_N3 is column 2, F1_REM column 3
         check(f"Table1 F1REM {key}", f1_score(y == "REM", Z[f"hmm__{key}"].astype(str) == "REM"), cell, 6e-3)
 
     print("== round-2 numbers: kappa without time, headroom, REM vs stage, clock check, stacking, envelope")
@@ -605,6 +612,73 @@ def main():
     check("foneREMBoldci lo", np.percentile(bs_, 2.5), lo_, 5.1e-3)
     check("foneREMBoldci hi", np.percentile(bs_, 97.5), hi_, 5.1e-3)
 
+    # draft 29: Table 3 cells against the numbers recomputed above (ladder from its predictions, within-bin gains)
+    t3, grp = {}, ""
+    for l in (PAPER / "tab_secondary.tex").read_text().splitlines():
+        if l.startswith("\\multicolumn"):
+            m_ = re.search(r"\(([a-e])\)", l); grp = m_.group(1) if m_ else "b"
+        elif "&" in l and not l.startswith("Comparison"):
+            c = [x.strip() for x in l.rstrip("\\ ").split("&")]
+            v = lambda x: float(re.sub(r"\\textbf\{([^}]*)\}", r"\1", x).split("[")[0].replace("$-$", "-").replace("+", "").strip())
+            t3[grp + ":" + c[0].replace("\\quad", "").strip()] = (v(c[2]), v(c[3]))
+    T3 = []   # draft 36: the within-bin rows left Table 3 (their numbers are text macros)
+    for lab, tag in (("b:Rebuilt, affine, before regression", "Aff"), ("b:Rebuilt, affine", "AffAll"),
+                     ("b:Rebuilt, nonlinear, GM", "SynGmAll"), ("b:Derivative, 84 parcels", "Afni")):
+        T3 += [(lab, f"ldInc{tag}Nthree", 0), (lab, f"ldInc{tag}REM", 1)]
+    assert not [k for k in t3 if k[0] not in "ab"], f"Table 3 has an unexpected group: {sorted(t3)}"
+    for lab, mac, j in T3:
+        check(f"Table3 {lab[:24]} {mac}", t3[lab][j], num(M[mac]), 6e-4)
+    # draft 31: Table 4 cells against the combined-controls macros (recomputed from predictions below) and the boldface rule
+    CCJ = json.load(open(BASE / "results_combined_controls.json"))
+    t4 = {}
+    for l in (PAPER / "tab_allcontrols.tex").read_text().splitlines():
+        c = [x.strip() for x in l.rstrip("\\ ").split("&")]
+        if len(c) == 7 and c[0] != "BOLD features" and not c[0].startswith("\\cmidrule") and c[0]:
+            t4[c[0]] = c[1:]
+    T4 = (("Derivative (221)", "deriv221", "DerivAll"), ("Derivative (84)", "deriv84", "DerivEf"), ("Rebuilt, affine (84)", "rebuilt_aff", "RebAff"),
+          ("Rebuilt, nonlinear, GM (84)", "rebuilt_syngm", "RebSyn"), ("Minimal (84)", "minimal84", "Min"))
+    check("Table4 rows", len(t4), len(T4), 0.5)
+    for lab, k, kt in T4:
+        for i, (st, (est, tag)) in enumerate([(st, et) for st in ("N3", "REM") for et in (("lr", "Lr"), ("hgb", "Hgb"), ("gru", "Gru"))]):
+            cell = t4[lab][i]
+            check(f"Table4 {lab[:16]} {est} {st}", num(re.sub(r"\\textbf\{([^}]*)\}", r"\1", cell)), num(M[f"cc{tag}{kt}{SN[st]}"]), 6e-4)
+            bold_ok = ("\\textbf" in cell) == (CCJ[est][k]["gain"][st]["ws_ci"][0] > 0)
+            check(f"Table4 bold {lab[:16]} {est} {st}", float(bold_ok), 1.0, 0.5)
+    # draft 30: all controls at once (56_combined_controls.py), recomputed from the saved probabilities
+    for est, tag in (("lr", "Lr"), ("hgb", "Hgb"), ("gru", "Gru")):
+        if f"cc{tag}DerivAllNthree" not in M:
+            continue
+        for k, kt in (("deriv221", "DerivAll"), ("deriv84", "DerivEf"), ("rebuilt_aff", "RebAff"), ("rebuilt_syngm", "RebSyn"), ("minimal84", "Min")):
+            f_ = BASE / f"predictions_combined_controls_{est}.npz"           # LR and trees: one file; BiGRU: one file per set
+            if not f_.exists():
+                f_ = BASE / f"predictions_combined_controls_{est}_{k}.npz"
+            CP = np.load(f_, allow_pickle=True)
+            yc, sc_ = CP["y"].astype(str), CP["subj"].astype(str)
+            if "proba__" + k not in CP.files:
+                continue
+            for st in ("N3", "REM"):
+                j = STAGES.index(st)
+                Aw_, Bw_ = ws(yc, CP["proba__" + k], sc_, st, j), ws(yc, CP["proba__base"], sc_, st, j)
+                check(f"cc{tag}{kt}{SN[st]}", np.mean([Aw_[u] - Bw_[u] for u in Aw_]), num(M[f"cc{tag}{kt}{SN[st]}"]), 6e-4)
+    # draft 38: paired pipeline differences (57_paired_pipeline_diff.py), recomputed here from the saved probabilities
+    def pmean(f_a, k_a, f_b, k_b, st="N3"):
+        A_, B_ = np.load(f_a, allow_pickle=True), np.load(f_b, allow_pickle=True)
+        y_, s_ = A_["y"].astype(str), A_["subj"].astype(str)
+        assert (A_["y"].astype(str) == B_["y"].astype(str)).all()
+        j = STAGES.index(st)
+        a_, b_ = ws(y_, A_["proba__" + k_a], s_, st, j), ws(y_, B_["proba__" + k_b], s_, st, j)
+        return float(np.mean([a_[u] - b_[u] for u in a_ if u in b_]))
+    cc_ = lambda est, k: BASE / (f"predictions_combined_controls_{est}.npz" if est != "gru" else f"predictions_combined_controls_gru_{k}.npz")
+    lt_ = [pmean(cc_(e, "deriv84"), "deriv84", cc_(e, k), k) for e in ("lr", "hgb") for k in ("rebuilt_aff", "rebuilt_syngm", "minimal84")]
+    check("pdLtMin", min(lt_), num(M["pdLtMin"]), 6e-4)
+    check("pdLtMax", max(lt_), num(M["pdLtMax"]), 6e-4)
+    check("pdGruRebAff", pmean(cc_("gru", "deriv84"), "deriv84", cc_("gru", "rebuilt_aff"), "rebuilt_aff"), num(M["pdGruRebAff"]), 6e-4)
+    check("pdGruMin", pmean(cc_("gru", "deriv84"), "deriv84", cc_("gru", "minimal84"), "minimal84"), num(M["pdGruMin"]), 6e-4)
+    ld_ = BASE / "predictions_preproc_ladder.npz"
+    check("pdLdReg", pmean(ld_, "nonbold+amp_aff_accmotphys", ld_, "nonbold+amp_aff"), num(M["pdLdReg"]), 6e-4)
+    check("pdLdSyn", pmean(ld_, "nonbold+amp_syn_gm_accmotphys", ld_, "nonbold+amp_aff_accmotphys"), num(M["pdLdSyn"]), 6e-4)
+    fr_ = pmean(ld_, "nonbold+amp_aff_accmotphys", ld_, "nonbold+amp_aff") / pmean(ld_, "nonbold+afni84", ld_, "nonbold+amp_aff")
+    check("pdFrac", 100 * fr_, num(M["pdFrac"]), 0.51)
     print("== hand-typed decimals in main.tex (should be none outside comments)")
     tex = [l.split("%")[0] for l in (PAPER / "main.tex").read_text().splitlines()]
     hits = [(i + 1, m.group(0)) for i, l in enumerate(tex) for m in re.finditer(r"(?<![\w\\{])[-+]?\d+\.\d+", l)]

@@ -122,6 +122,9 @@ def draft10(M, A, W, ma):
     CTp = json.load(open(BASE / "results_contrast.json"))["rem_vs"]["lr"]
     assert CTp["W"]["mean"] <= 0 and CTp["N1"]["mean"] <= 0, "text: REM gains against W and N1 are <= 0"
     M["ctrP"] = pfmt(RC["contrast_wilcoxon_p"])
+    _n = int(M["ctrN"]) if "ctrN" in M else None
+    if _n is not None:
+        assert abs(RC["contrast_wilcoxon_p"] - 2 / 2 ** _n) < 1e-6, "text: the N3-REM p is the smallest a two-sided Wilcoxon test can give"
     M["shREMupT"] = sg(RC["second_half"]["t_upper"])
     assert RC["second_half"]["t_upper"] > d, "text: the second-half test is too imprecise to place inside the margin"
     M["marginT"] = sg(RC["smallest_margin_rem"]["t"])
@@ -277,6 +280,8 @@ def draft10(M, A, W, ma):
             M["toneREMmin"], M["toneREMmax"] = sg(min(g["REM"]["ws_mean"] for g in tones)), sg(max(g["REM"]["ws_mean"] for g in tones))
         if "hmm30" in P2:
             M["kkNbThirty"] = k2(P2["hmm30"]["kappa_nb30_bold"])
+        if "conserv" in P2:
+            M["cvN"] = f"{P2['conserv']['n_epochs']:,}"
         for fam, tag in (("lr", "cvLr"), ("hgb", "cvHgb"), ("gru", "cvGru")):
             if fam in P2.get("conserv", {}):
                 gainmac(M, tag, P2["conserv"][fam]["gain"], P2["conserv"][fam]["contrast"])
@@ -324,6 +329,171 @@ def draft10(M, A, W, ma):
         for k, tag in (("eye_over_nonbold", "eyeNb"), ("bold_over_nonbold", "eyeRefBold"),
                        ("eye_over_nonbold_bold", "eyeNbBold"), ("bold_over_nonbold_eye", "eyeBoldOver")):
             gainmac(M, tag, dv[k], stages=STAGES)
+
+
+def table3(M, ma):
+    """Table 3 (draft 29): the secondary comparisons the Results discuss, each with its pipeline, baseline, epoch set
+    and estimator, so the prose can cite rows. Every cell comes from a results_*.json file."""
+    MT = json.load(open(BASE / "results_matched.json")); LD = json.load(open(BASE / "results_preproc_ladder.json"))
+    EY = json.load(open(BASE / "results_rv2_eyes.json"))["B"]; R4 = json.load(open(BASE / "results_round4_checks.json"))
+    LX = json.load(open(BASE / "results_learned_encoder_extra.json")); SC = json.load(open(BASE / "results_block_subc.json"))
+    M["eyN"] = f"{EY['deriv_n_epochs']:,}"
+    f2_ = lambda x: f"{x:.2f}"
+    f3_ = lambda x: f"{x:+.3f}".replace("-", "$-$")
+
+    def gcell(r):
+        txt = f3_(r["ws_mean"] if "ws_mean" in r else r["mean"])
+        lo, hi = r["ws_ci"] if "ws_ci" in r else r["ci"]
+        return f"\\textbf{{{txt}}}" if lo > 0 else txt
+
+    def rcell(r):
+        lo, hi = r["ws_ci"] if "ws_ci" in r else r["ci"]
+        return f"{gcell(r)} [{f3_(lo)},\\,{f3_(hi)}]"
+
+    rows = []
+    add = lambda lab, auc, inc: rows.append(f"{lab} & {auc} & {gcell(inc['N3'])} & {rcell(inc['REM'])} \\\\")
+    # draft 38: the old group (a) (minimal and realigned pipelines on the 13,448 shared epochs) moved to the text
+    dv = EY["deriv"]
+    assert abs(dv["bold_over_nonbold"]["N3"]["ws_mean"] - MT["increment"]["afni"]["N3"]["ws_mean"]) < 6e-4
+    assert LD["meta"]["n_epochs"] <= MT["meta"]["n_epochs"]
+    rows.append(f"\\multicolumn{{4}}{{@{{}}l}}{{\\emph{{Rebuilt pipeline, before and after regression ({LD['meta']['n_epochs']:,} epochs)}}}} \\\\")
+    for k, lab in (("amp_aff", "Rebuilt, affine, before regression"), ("amp_aff_accmotphys", "Rebuilt, affine"), ("amp_syn_gm_accmotphys", "Rebuilt, nonlinear, GM"),
+                   ("afni84", "Derivative, 84 parcels")):
+        add(lab, f2_(LD["auc_ws"][k]["N3"]), LD["increment"][k])
+    # (e) all controls at once (56_combined_controls.py): baseline = non-BOLD + 18 cardiorespiratory + eye block
+    CC = json.load(open(BASE / "results_combined_controls.json"))
+    # one row per estimator for the derivative, the rebuilt pipeline and the minimal pipeline, so every number the text
+    # quotes for this comparison is a cell
+    cc_sets = (("deriv221", "Derivative, 200 parcels $+$ FC, LR"), ("rebuilt_aff", "Rebuilt, all regressors, LR"),
+               ("minimal84", "Minimal, 84 parcels, LR"))
+    cc_rows = [f"\\multicolumn{{4}}{{@{{}}l}}{{\\emph{{(c) All controls: over stronger baseline $+$ eye block ({CC['lr']['meta']['n_epochs']:,} epochs)}}}} \\\\"]
+    for k, lab in cc_sets:
+        for est, elab in (("lr", lab), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
+            if est in CC and k in CC[est]:
+                r_ = CC[est][k]["gain"]
+                cc_rows.append(f"{elab} & -- & {gcell(r_['N3'])} & {rcell(r_['REM'])} \\\\")
+    for est in [k for k in ("lr", "hgb", "gru") if k in CC]:
+        tag = {"lr": "Lr", "hgb": "Hgb", "gru": "Gru"}[est]
+        for k, kt in (("deriv221", "DerivAll"), ("deriv84", "DerivEf"), ("rebuilt_aff", "RebAff"), ("rebuilt_syngm", "RebSyn"), ("minimal84", "Min")):
+            if k in CC[est]:
+                M[f"cc{tag}{kt}Nthree"] = sg(CC[est][k]["gain"]["N3"]["ws_mean"])
+                M[f"cc{tag}{kt}REM"] = sg(CC[est][k]["gain"]["REM"]["ws_mean"])
+                M[f"cc{tag}{kt}NthreeSubj"] = f"{CC[est][k]['gain']['N3']['n_pos']}/{CC[est][k]['gain']['N3']['n_subj']}"
+        own = [CC[est][k]["gain"]["N3"]["ws_mean"] for k in ("rebuilt_aff", "minimal84") if k in CC[est]]     # the rows Table 3c shows
+        if own:
+            M[f"cc{tag}OwnMin"], M[f"cc{tag}OwnMax"] = sg(min(own)), sg(max(own))
+    M["ccN"] = f"{CC['lr']['meta']['n_epochs']:,}"
+    M["ccOwnMaxAll"] = sg(max(CC[est][k]["gain"]["N3"]["ws_mean"] for est in CC for k in ("rebuilt_aff", "minimal84") if k in CC[est]))
+    M["ccLrDerivAllNthreeN"] = str(CC["lr"]["deriv221"]["gain"]["N3"]["n_subj"])
+    M["ccDerivMinAll"] = sg(min(CC[est]["deriv221"]["gain"]["N3"]["ws_mean"] for est in CC if "deriv221" in CC[est]))
+    M["ccDerivMaxAll"] = sg(max(CC[est]["deriv221"]["gain"]["N3"]["ws_mean"] for est in CC if "deriv221" in CC[est]))
+    assert all(CC[est]["deriv221"]["gain"]["N3"]["ws_ci"][0] > 0 for est in CC if "deriv221" in CC[est]), "text: with the derivative the N3 gain survives all controls"
+    assert CC["lr"]["minimal84"]["gain"]["N3"]["ws_ci"][0] < 0 and CC["lr"]["rebuilt_aff"]["gain"]["N3"]["ws_ci"][0] < 0, \
+        "text: with our own preprocessing the planned model's N3 gain is not distinguishable from zero once all controls are combined"
+    assert all(CC[est][k]["n_bold"] == 84 for est in CC for k in ("deriv84", "rebuilt_aff", "rebuilt_syngm", "minimal84") if k in CC[est]), "Table 4 labels: 84 parcels"
+    # Table 4: all controls at once, one column per estimator (draft 31)
+    t4 = ["\\begin{table}[t]", "\\centering", "\\fontsize{7.5}{9}\\selectfont", "\\setlength{\\tabcolsep}{2.2pt}",
+          "\\caption{All controls: N3 gains need the derivative or, with trees or BiGRU, our nuisance regression; REM gains stay small. Gain over the stronger $+$ eyes baseline "
+          f"({CC['lr']['meta']['n_base']} features) on the {CC['lr']['meta']['n_epochs']:,} epochs all BOLD sets cover (N3: "
+          f"{CC['lr']['deriv221']['gain']['N3']['n_subj']} subjects). 221: main "
+          "features (row 1: Table~\\ref{tab:robust}'s stronger $+$ eyes rows, other epochs); 84: shared parcels' "
+          f"amplitude. Baseline N3 AUC: {CC['lr']['auc_base']['N3']:.2f} (LR), {CC['hgb']['auc_base']['N3']:.2f} (trees), "
+          f"{CC['gru']['auc_base']['N3']:.2f} (BiGRU). Bold: bootstrap CI above zero.}}",
+          "\\label{tab:allcontrols}", "\\begin{tabular}{@{}lcccccc@{}}", "\\toprule",
+          " & \\multicolumn{3}{c}{$\\Delta_\\mathrm{N3}$} & \\multicolumn{3}{c}{$\\Delta_\\mathrm{REM}$} \\\\",
+          "\\cmidrule(lr){2-4}\\cmidrule(l){5-7}",
+          "BOLD features & LR & trees & BiGRU & LR & trees & BiGRU \\\\", "\\midrule"]
+    for k, lab in (("deriv221", "Derivative (221)"), ("deriv84", "Derivative (84)"), ("rebuilt_aff", "Rebuilt, affine (84)"),
+                   ("rebuilt_syngm", "Rebuilt, nonlinear, GM (84)"), ("minimal84", "Minimal (84)")):
+        cells = [gcell(CC[est][k]["gain"][st]) for st in ("N3", "REM") for est in ("lr", "hgb", "gru")]
+        t4.append(f"{lab} & " + " & ".join(cells) + " \\\\")
+    t4 += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
+    (PAPER / "tab_allcontrols.tex").write_text("\n".join(t4) + "\n")
+    rng_ = lambda ks: [CC[est][k]["gain"]["N3"]["ws_mean"] for est in ("lr", "hgb", "gru") for k in ks]
+    M["ccDerivEfMin"], M["ccDerivEfMax"] = sg(min(rng_(["deriv84"]))), sg(max(rng_(["deriv84"])))
+    M["ccOwnMin"], M["ccOwnMax"] = sg(min(rng_(["rebuilt_aff", "rebuilt_syngm", "minimal84"]))), sg(max(rng_(["rebuilt_aff", "rebuilt_syngm", "minimal84"])))
+    M["ccLrOwnMinAll"], M["ccLrOwnMaxAll"] = (sg(f([CC["lr"][k]["gain"]["N3"]["ws_mean"] for k in ("rebuilt_aff", "rebuilt_syngm", "minimal84")])) for f in (min, max))
+    assert all(CC["lr"][k]["gain"]["N3"]["ws_ci"][0] < 0 for k in ("rebuilt_aff", "rebuilt_syngm", "minimal84")), "text: own pipelines' planned-model CIs include zero"
+    assert all(CC[est]["deriv84"]["gain"]["N3"]["ws_ci"][0] > 0 for est in ("lr", "hgb", "gru")), "text: the derivative's 84 parcels keep a gain under all controls"
+    assert all(CC[est][k]["gain"]["N3"]["ws_ci"][0] > 0 for est in ("hgb", "gru") for k in ("rebuilt_aff", "rebuilt_syngm")), \
+        "text: the rebuilt pipeline's N3 gain is above zero with the flexible estimators"
+    assert all(CC[est]["minimal84"]["gain"]["N3"]["ws_ci"][0] <= 0 for est in ("lr", "hgb", "gru")), "text: the minimal pipeline's N3 gain is never above zero"
+    assert float(M["ccOwnMax"]) > float(M["ccLrOwnMaxAll"]), "abstract: the own-pipeline maximum comes from a nonlinear estimator"
+    assert min(rng_(["deriv84", "deriv221"])) == min(rng_(["deriv84"])) and max(rng_(["deriv84", "deriv221"])) == max(rng_(["deriv221"])), \
+        "text: the derivative's all-controls N3 gains run from the 84-parcel minimum to the 221-feature maximum"
+    own_ = lambda est: max(CC[est][k]["gain"]["N3"]["ws_mean"] for k in ("rebuilt_aff", "rebuilt_syngm", "minimal84"))
+    for est in ("lr", "hgb"):
+        assert own_(est) <= 0.55 * CC[est]["deriv84"]["gain"]["N3"]["ws_mean"], f"abstract: {est} shows the preprocessing gap"
+    assert abs(CC["gru"]["rebuilt_aff"]["gain"]["N3"]["ws_mean"] - CC["gru"]["deriv84"]["gain"]["N3"]["ws_mean"]) < 0.005 \
+        and own_("gru") == CC["gru"]["rebuilt_aff"]["gain"]["N3"]["ws_mean"], "abstract: the BiGRU gains as much from the rebuilt pipeline"
+    # the eye-over-non-BOLD comparison (41) keeps Table 3a's epochs and sets missing eye features to the subject mean
+    # (wz -> nan_to_num); the stronger + eyes analyses (47, 56) drop epochs without eye features
+    _eyN, _cvN = int(M["eyN"].replace(",", "")), int(M["cvN"].replace(",", ""))
+    assert _eyN == MT["meta"]["n_epochs"], "the eye comparison keeps the epochs of Table 3a"
+    assert 0 < _eyN - _cvN < 0.05 * _eyN, (_eyN, _cvN)
+    M["eyMiss"] = f"{_eyN - _cvN:,}"
+    _rm = max(((est, k) for est in ("lr", "hgb", "gru") for k in CC[est] if k not in ("meta", "auc_base")),
+              key=lambda t: CC[t[0]][t[1]]["gain"]["REM"]["ws_mean"])
+    _P2 = json.load(open(BASE / "results_panel_checks2.json"))["conserv"]["hgb"]["gain"]["REM"]
+    assert _rm == ("hgb", "deriv221") and CC["hgb"]["deriv221"]["gain"]["REM"]["ws_ci"][0] > 0 and _P2["ws_ci"][0] <= 0, \
+        "text: Table 4's largest REM gain is trees on the derivative, CI above zero only on Table 4's epochs"
+    # paired pipeline differences (57_paired_pipeline_diff.py, post hoc, asked by the author on 2026-10-22)
+    PD = json.load(open(BASE / "results_paired_pipeline.json"))
+    for est, et in (("lr", "Lr"), ("hgb", "Hgb"), ("gru", "Gru")):
+        for k, kt in (("deriv84-rebuilt_aff", "RebAff"), ("deriv84-rebuilt_syngm", "RebSyn"), ("deriv84-minimal84", "Min"),
+                      ("rebuilt_aff-minimal84", "Reg")):
+            r = PD["allcontrols"][est][k]["N3"]
+            M[f"pd{et}{kt}"], M[f"pd{et}{kt}ci"] = sg(r["mean"]), ci(r["ci"])
+    _lt = [PD["allcontrols"][e][k]["N3"] for e in ("lr", "hgb") for k in ("deriv84-rebuilt_aff", "deriv84-rebuilt_syngm", "deriv84-minimal84")]
+    assert all(r["ci"][0] > 0 and r["t_lower95"] > 0 for r in _lt), "text: with LR and trees the derivative's parcels beat every one of our pipelines"
+    M["pdLtMin"], M["pdLtMax"] = sg(min(r["mean"] for r in _lt)), sg(max(r["mean"] for r in _lt))
+    _g = PD["allcontrols"]["gru"]
+    assert _g["deriv84-rebuilt_aff"]["N3"]["ci"][0] < 0 < _g["deriv84-rebuilt_aff"]["N3"]["ci"][1] \
+        and _g["deriv84-rebuilt_syngm"]["N3"]["ci"][0] < 0 < _g["deriv84-rebuilt_syngm"]["N3"]["ci"][1] \
+        and _g["deriv84-minimal84"]["N3"]["ci"][0] > 0, "text: with the BiGRU only the minimal pipeline falls short of the derivative"
+    L_ = PD["ladder"]
+    for k, kt in (("afni84-amp_aff", "Pre"), ("afni84-amp_aff_accmotphys", "Reb"), ("amp_aff_accmotphys-amp_aff", "Reg"),
+                  ("amp_syn_gm_accmotphys-amp_aff_accmotphys", "Syn")):
+        M[f"pdLd{kt}"], M[f"pdLd{kt}ci"] = sg(L_[k]["N3"]["mean"]), ci(L_[k]["N3"]["ci"])
+    assert L_["amp_aff_accmotphys-amp_aff"]["N3"]["ci"][0] > 0 and L_["amp_syn_gm_accmotphys-amp_aff_accmotphys"]["N3"]["ci"][0] < 0 < \
+        L_["amp_syn_gm_accmotphys-amp_aff_accmotphys"]["N3"]["ci"][1], "text: the regression step adds, registration and GM do not"
+    fr_ = L_["recovered_fraction_N3"]
+    M["pdFrac"], M["pdFracLo"], M["pdFracHi"] = (f"{100 * v:.0f}" for v in (fr_["value"], *fr_["ci"]))
+    assert 0.4 < fr_["value"] < 0.65 and fr_["ci"][0] > 0 and fr_["ci"][1] < 1, "text: rebuilding recovers about half, CI inside (0, 1)"
+    M["nStrongFeat"] = str(int(M["nNbFeat"]) + int(M["nSpecFeat"]))
+    M["nStrongEyeFeat"] = str(CC["lr"]["meta"]["n_base"])
+    assert int(M["nStrongEyeFeat"]) == int(M["nStrongFeat"]) + 12, "text: the eye block has 12 features"
+    M["ccN"] = f"{CC['lr']['meta']['n_epochs']:,}"
+    M["ccRemMax"] = sg(max(CC[est][k]["gain"]["REM"]["ws_mean"] for est in ("lr", "hgb", "gru") for k in CC[est] if k not in ("meta", "auc_base")))
+    # draft 36: the within-bin rows (old group c) moved to the text, with their CIs as macros
+    for k, tag in (("nb+enc_nn - nb_nn", "leStrat"), ("late(nb_lr,enc) - nb_lr", "leLateStrat")):
+        lo_, hi_ = LX["stratified_1h"][k]["REM"]["ci"]
+        M[tag + "REMci"] = f"{sg(lo_)}, {sg(hi_)}"
+    assert abs(LD["increment"]["amp_aff_gm"]["N3"]["ws_mean"] - float(M["ownNthreeMin"].replace("$-$", "-"))) < 6e-4, "text: the lowest own-pipeline N3 gain is the grey-matter-only rung"
+    a0, a1, ad = (LD["auc_ws"][k]["N3"] for k in ("amp_aff", "amp_aff_accmotphys", "afni84"))
+    assert 0.4 < (a1 - a0) / (ad - a0) < 0.65, "text: the regressors explain about half of the derivative's advantage"
+    g0, g1, gd = (LD["increment"][k]["N3"]["ws_mean"] for k in ("amp_aff", "amp_aff_accmotphys", "afni84"))
+    assert 0.4 < (g1 - g0) / (gd - g0) < 0.65, "abstract: rebuilding recovers about half of the N3-gain difference too"
+    assert LD["increment"]["amp_syn_gm_accmotphys"]["N3"]["ws_mean"] <= LD["increment"]["amp_aff_accmotphys"]["N3"]["ws_mean"] + 0.005, \
+        "text: nonlinear registration and grey-matter restriction add nothing"
+    assert abs(dv["eye_over_nonbold"]["REM"]["ws_mean"]) < 0.01, "text: the eye block adds nothing to REM"
+    _neg = sum(1 for r in rows if "&" in r and "[$-$" in r.split("&")[3] and ",\\,$-$" in r.split("&")[3])
+    M["tThreeRemNeg"] = str(_neg)
+    assert _neg >= 3, _neg
+    _own = [MT["increment"][k]["N3"]["ws_mean"] / MT["increment"]["afni84"]["N3"]["ws_mean"] for k in ("raw84amp", "rv84amp")] + \
+           [LD["increment"][k]["N3"]["ws_mean"] / LD["increment"]["afni84"]["N3"]["ws_mean"] for k in ("amp_aff", "amp_aff_accmotphys", "amp_syn_gm_accmotphys")]
+    assert max(_own) <= 0.55, "Table 3 caption: our pipelines keep at most about half of the derivative's N3 gain"
+    out = ["\\begin{table}[t]", "\\centering", "\\fontsize{7.5}{9}\\selectfont", "\\setlength{\\tabcolsep}{2pt}",
+           "\\caption{Our pipelines keep at most about half of the derivative's N3 gain. Planned model; gain from adding the stated BOLD features to "
+           "non-BOLD (REM: 95\\% CI); AUC$_\\mathrm{N3}$: that BOLD set alone; boldface: bootstrap CI above zero.}",
+           "\\label{tab:secondary}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
+           "Comparison & AUC$_\\mathrm{N3}$ & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ [95\\% CI] \\\\", "\\midrule"]
+    for i, r in enumerate(rows):
+        if r.startswith("\\multicolumn") and i > 0:
+            out.append("\\midrule")
+        out.append(r)
+    out += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
+    (PAPER / "tab_secondary.tex").write_text("\n".join(out) + "\n")
 
 
 def main():
@@ -660,6 +830,8 @@ def main():
     assert MT["increment"]["rv84mot"]["N3"]["ws_mean"] < 0.03, "text: motion regression does not recover the derivative's N3 gain"
     own = {k: MT["increment"][k]["N3"]["ws_mean"] for k in ("raw84amp", "rv84amp", "rv84phys", "rv84mot")}
     M["mtOwnMin"], M["mtOwnMax"] = sg(min(own.values())), sg(max(own.values()))
+    _shown = [own["raw84amp"], own["rv84amp"]]
+    assert sg(min(_shown)) == M["mtOwnMin"] and sg(max(_shown)) == M["mtOwnMax"], "text: Table 3a's shown rows span the own-pipeline N3 range"
     ladr = [MT[q][k]["REM"]["ws_mean"] for q in ("increment",) for k in ("raw84amp", "rv84amp", "rv84phys", "afni84", "afni")]
     M["mtRemMaxEarly"] = sg(max(ladr))
     assert max(ladr) < 0
@@ -675,6 +847,7 @@ def main():
         v = [MT[k][key]["N3"]["ws_mean"] for key in ("raw84amp", "afni84", "afni")]
         assert v[0] < v[1] < v[2], v
     M["nParcelsRaw"] = str(MT["meta"]["n_common_parcels"])
+    assert M["nParcelsRaw"] == "84", "Table 3 and Table 4 row labels say 84 parcels"
     n_fc_raw = mw["n_bold_features"] - MT["meta"]["n_common_parcels"]
     M["nNetfcRaw"] = str(n_fc_raw)
     M["nNetsRaw"] = str(int(round((1 + (1 + 8 * n_fc_raw) ** 0.5) / 2)))     # n(n-1)/2 pairs
@@ -727,21 +900,21 @@ def main():
             if pos.sum() >= ma["min_epochs"] and (~pos).sum() >= ma["min_epochs"]:
                 v.append(roc_auc_score(pos, pz[m, i]))
         aw["netFC-LR (after Tagliazucchi 2012)"][st] = {"mean": float(np.mean(v))}
-    rows = [("Elapsed time (2)", "clock", "clock"),
-            (f"Head motion ({ma['n_motion']})", "motion", "motion"), (f"Physiology ({M['nPhysFeat']})", "physio", "physio"),
+    rows = [("Time (2)", "clock", "clock"),
+            (f"Motion ({ma['n_motion']})", "motion", "motion"), (f"Physiology ({M['nPhysFeat']})", "physio", "physio"),
             (f"Non-BOLD ({M['nNbFeat']})", "nonbold", "nonbold"),
-            ("7-network FC (21)", "netFC-LR (after Tagliazucchi 2012)", "netFC-LR (after Tagliazucchi 2012)"),
+            ("Network FC (21)", "netFC-LR (after Tagliazucchi 2012)", "netFC-LR (after Tagliazucchi 2012)"),
             (f"BOLD ({ma['n_bold_features']})", "bold", "bold"),
-            ("Non-BOLD + BOLD", "nonbold+bold", "nonbold+bold")]
+            ("Non-BOLD$+$BOLD", "nonbold+bold", "nonbold+bold")]
     best = max(L[k]["kappa"] for _, k, _ in rows)
-    out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.6pt}",
-           "\\caption{Five-class staging (derivative, leave-one-subject-out). AUC: within-subject one-vs-rest; "
-           "in parentheses: gain over non-BOLD. Bold: best $\\kappa$. "
-           "}",
-           "\\label{tab:ladder}", "\\begin{tabular}{@{}lcccc@{}}", "\\toprule",
-           " & \\multicolumn{2}{c}{after HMM} & \\multicolumn{2}{c}{before HMM: AUC} \\\\",
-           "\\cmidrule(lr){2-3}\\cmidrule(l){4-5}",
-           "Model (features) & $\\kappa$ [95\\% CI] & F1$_\\mathrm{REM}$ & N3 & REM \\\\",
+    out = ["\\begin{table}[t]", "\\centering", "\\fontsize{7.5}{9}\\selectfont", "\\setlength{\\tabcolsep}{1.3pt}",
+           "\\caption{Five-class staging, derivative, planned model: Cohen's $\\kappa$ [95\\% CI] and F1 after HMM decoding, "
+           "within-subject AUC before it. FC: network connectivity~\\cite{tagliazucchi2012}. In parentheses: gain over "
+           "non-BOLD.}",
+           "\\label{tab:ladder}", "\\begin{tabular}{@{}lccccc@{}}", "\\toprule",
+           " & \\multicolumn{3}{c}{after HMM} & \\multicolumn{2}{c}{before HMM: AUC} \\\\",
+           "\\cmidrule(lr){2-4}\\cmidrule(l){5-6}",
+           "Model (features) & $\\kappa$ [95\\% CI] & F1$_\\mathrm{N3}$ & F1$_\\mathrm{REM}$ & N3 & REM \\\\",
            "\\midrule"]
     for label, key, akey in rows:
         h = L[key]
@@ -755,7 +928,7 @@ def main():
             gi = A["increment"]["nonbold+bold - nonbold"]
             an += f" ({gi['N3']['ws_mean']:+.2f})".replace("-", "$-$")
             ar += f" ({gi['REM']['ws_mean']:+.2f})".replace("-", "$-$")
-        out.append(f"{label} & {kap}{cis} & {h['f1']['REM']:.2f} & {an} & {ar} \\\\")
+        out.append(f"{label} & {kap}{cis} & {h['f1']['N3']:.2f} & {h['f1']['REM']:.2f} & {an} & {ar} \\\\")
         if key in ("nonbold", "bold"):
             out.append("\\midrule")
     out += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
@@ -766,9 +939,9 @@ def main():
         if r is None:
             return "--"
         f = lambda x: f"{x:.3f}".replace("-", "$-$")     # three decimals, so the bold (CI above zero) rule can be checked
-        txt = f"{f(r['ws_mean'])} [{f(r['ws_ci'][0])}, {f(r['ws_ci'][1])}]"
+        txt = f"{f(r['ws_mean'])} [{f(r['ws_ci'][0])},\\,{f(r['ws_ci'][1])}]"
         if r["ws_ci"][0] > 0:
-            txt = f"\\textbf{{{f(r['ws_mean'])}}} [{f(r['ws_ci'][0])}, {f(r['ws_ci'][1])}]"
+            txt = f"\\textbf{{{f(r['ws_mean'])}}} [{f(r['ws_ci'][0])},\\,{f(r['ws_ci'][1])}]"
         if dagger and r["ws_upper95"] < ma["delta"] and tbound(r) < ma["delta"]:
             txt += "$^\\dagger$"
         return txt
@@ -842,11 +1015,11 @@ def main():
         rob.append(("\\quad LR, nested-tuned", tuned("lr", "max"), "spec"))
     if tuned("hgb", "max"):
         rob.append(("\\quad trees, nested-tuned", tuned("hgb", "max"), "spec"))
-    for fam, lab in (("lr", "Stronger non-BOLD, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
+    for fam, lab in (("lr", "Stronger baseline, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
         if fam in SP:
             rob.append((lab, SP[fam]["gain"], "strong"))
     CV = json.load(open(BASE / "results_panel_checks2.json"))["conserv"]
-    for fam, lab in (("lr", "Stronger $+$ eye block, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
+    for fam, lab in (("lr", "Stronger baseline $+$ eyes, LR"), ("hgb", "\\quad boosted trees"), ("gru", "\\quad BiGRU")):
         rob.append((lab, CV[fam]["gain"], "strong"))
     # learned representations of each epoch's 90 s parcel series (53_learned_encoder.py, 54_ssl_pretrain.py), the
     # paper's readout on both; the encoder row compares two networks of the same design (as the BiGRU rows do).
@@ -859,13 +1032,15 @@ def main():
     assert SSL["meta"].get("strict") and SSLT["meta"]["exclude"] is None
     g_le, g_ssl = LE["gain_nb+enc_over_nb"], SSL["gain"]["nb+emb - nb"]["per_stage"]
     g_sslT = SSLT["gain"]["nb+emb - nb"]["per_stage"]
-    rob += [("Temporal CNN encoder, joint network", g_le, "learned"),
-            ("Self-supervised embedding, LR", g_ssl, "learned")]
+    rob += [("CNN encoder", g_le, "learned"),
+            ("Self-supervised embedding", g_ssl, "learned")]
     for tag, r in (("le", g_le), ("ssl", g_ssl), ("sslTrans", g_sslT)):
         for st in ("N3", "REM"):
             M[f"{tag}{SN[st]}"], M[f"{tag}{SN[st]}ci"] = sg(r[st]["ws_mean"]), ci(r[st]["ws_ci"])
             M[f"{tag}{SN[st]}up"], M[f"{tag}{SN[st]}upT"] = sg(r[st]["ws_upper95"]), sg(tbound(r[st]))
             M[f"{tag}{SN[st]}Subj"], M[f"{tag}{SN[st]}SubjN"] = str(r[st]["n_pos"]), str(r[st]["n_subj"])
+    _r = g_le["REM"]
+    assert _r["ws_lower95"] > 0 and _r["t_lower95"] > 0 and _r["ws_mean"] >= ma["delta"], "text: the encoder's REM gain meets the logged gain bar"
     for st in STAGES:
         M[f"leAuc{SN[st]}"], M[f"sslAuc{SN[st]}"] = f3(LE["auc_ws"]["enc"][st]), f3(SSL["auc_ws"]["emb"][st])
         M[f"sslTransAuc{SN[st]}"] = f3(SSLT["auc_ws"]["emb"][st])
@@ -879,8 +1054,17 @@ def main():
     # abstract: "up to leLateStratREM for a CNN encoder within 1 h bins"; Discussion: "at most about five hundredths across
     # the night and seven within 1 h bins" (the largest REM gains the paper reports, across the night and within bins)
     rem_within = [LX["stratified_1h"]["nb+enc_nn - nb_nn"]["REM"]["mean"], LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"]["REM"]["mean"]]
+    assert all(LX["stratified_1h"][k]["REM"]["mean"] < 0.5 * LX["stratified_1h"][k]["N3"]["mean"]
+               for k in ("nb+enc_nn - nb_nn", "late(nb_lr,enc) - nb_lr")), "text: within bins the encoder's REM gain is under half its N3 gain"
     assert max(rem_within) == LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"]["REM"]["mean"] and round(max(rem_within), 2) == 0.07
     assert round(max(LX["gain"]["late(nb_lr,enc) - nb_lr"]["per_stage"]["REM"]["ws_mean"], g_le["REM"]["ws_mean"]), 2) == 0.05
+    # text: the encoder's late-fusion gain within 1 h bins with its CI; the encoder closes hrEncREM% of REM's remaining 1-AUC
+    M["leLateStratREMci"] = ci(LX["stratified_1h"]["late(nb_lr,enc) - nb_lr"]["REM"]["ci"])
+    M["hrEncREM"] = f"{100 * g_le['REM']['ws_mean'] / (1 - A['auc_ws']['nonbold']['REM']['mean']):.0f}"
+    assert 20 < float(M["hrEncREM"]) < 50
+    # text: the stronger baselines' REM gains stay at most spHgbREM, all six inside the margin
+    _strong_rem = [r["REM"]["ws_mean"] for _, r, g in rob if g == "strong"]
+    assert len(_strong_rem) == 6 and abs(max(_strong_rem) - float(M["spHgbREM"].replace("$-$", "-"))) < 6e-4
     # text: "they add lrnRemMin to lrnRemMax to REM and lrnNthreeMin to lrnNthreeMax to N3"
     lrn = [g_le, g_ssl]                       # the two specification rows; leLr*/leLate* are reported separately
     M["lrnRemMin"], M["lrnRemMax"] = sg(min(r["REM"]["ws_mean"] for r in lrn)), sg(max(r["REM"]["ws_mean"] for r in lrn))
@@ -902,6 +1086,7 @@ def main():
     assert LM["auc_ws"]["enc"]["REM"] < 0.6 and LM["gain_nb+enc_over_nb"]["REM"]["ws_mean"] < 0.015, "text: the censoring pattern alone carries no REM information"
     assert abs(LO["gain_nb+enc_over_nb"]["REM"]["ws_mean"] - g_le["REM"]["ws_mean"]) < 0.01 and abs(LO["auc_ws"]["enc"]["REM"] - LE["auc_ws"]["enc"]["REM"]) < 0.01, \
         "text: the encoder's REM information does not depend on the orbitofrontal parcels"
+    assert float(M["hrREM"].replace("$-$", "-")) <= 0, "text: BOLD closes none of REM's remaining 1-AUC"
     M["kkEnc"], M["kkEmb"], M["kkEmbTrans"] = k2_(LE["hmm"]["enc"]["kappa"]), k2_(SSL["hmm"]["emb"]["kappa"]), k2_(SSLT["hmm"]["emb"]["kappa"])
     M["kkNbEnc"], M["kkNbEmb"] = k2_(LE["hmm"]["nb+enc"]["kappa"]), k2_(SSL["hmm"]["nb+emb"]["kappa"])
     sw = np.load(BASE / "ssl_windows.npz", allow_pickle=True)
@@ -1006,54 +1191,152 @@ def main():
     _inside = [r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r in spec]   # by row, labels repeat
     M["nSpecRemCiPosOut"] = str(sum(r["REM"]["ws_ci"][0] > 0 for (lab, r), ins in zip(spec, _inside) if not ins))
     M["nSpecRemCiPosIn"] = str(sum(r["REM"]["ws_ci"][0] > 0 for (lab, r), ins in zip(spec, _inside) if ins))
+    assert all(r["REM"]["ws_mean"] < 0.5 * r["N3"]["ws_mean"] for _, r in spec), "text: every REM gain is under half the N3 gain of the same specification"
+    _pin = [(lab, r) for (lab, r), ins in zip(spec, _inside) if ins and r["REM"]["ws_ci"][0] > 0]
+    assert len(_pin) == 1 and "trees" in _pin[0][0] and abs(_pin[0][1]["REM"]["ws_mean"] - float(M["spHgbREM"])) < 6e-4, \
+        f"text: the one REM CI above zero inside the margin is the stronger baseline with boosted trees: {[l for l, _ in _pin]}"
     assert int(M["nSpecRemCiPosOut"]) + int(M["nSpecRemCiPosIn"]) == int(M["nSpecRemCiPos"])
     print("  specification rows below every-subject N3>REM:", [(lab, c) for (lab, r), c in zip(spec, cts) if c[0] < c[1]])
-    lows_ = [inc["N3"]["ws_ci"][0] for _, inc, _g in rob if not (isinstance(inc, str)) and inc.get("N3") is not None
+    lows_ = [inc["N3"]["ws_ci"][0] for _, inc, _g in rob if not isinstance(inc, str) and inc.get("N3") is not None
              and inc["N3"]["ws_ci"][0] > 0] + [r["N3"]["ws_ci"][0] for _, r in variants]
     M["tabNthreeLoMin"], M["tabNthreeLoMax"] = f"{min(lows_):.2f}", f"{max(lows_):.2f}"
-    out = ["\\begin{table}[t]", "\\centering", "\\scriptsize", "\\setlength{\\tabcolsep}{2.4pt}",
-           "\\caption{AUC gain from adding BOLD to non-BOLD, mean [95\\% subject-bootstrap CI]. Bold: CI "
-           f"above zero (bold $\\Delta_\\mathrm{{N3}}$: lower bounds {M['tabNthreeLoMin']}--{M['tabNthreeLoMax']}). $^\\dagger$: both one-sided 95\\% upper bounds (bootstrap, $t$) below "
-           f"$\\delta={ma['delta']:.2f}$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the "
-           f"{len(spec)} specifications. $^\\ddagger$Global "
-           "signal regressed/added, aCompCor, $+$6\\,s, within-run z, slow physiology regressed, detrending, "
-           "image-based motion, night fraction/index, cross-night training, uncensored, best-aligned/non-drifting "
-           "runs, awakenings removed, lagged physiology, no somatomotor, $C$ 0.01--10.}",
-           "\\label{tab:robust}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
-           "Variant & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ & \\begin{tabular}{@{}c@{}}N3$>$\\\\REM\\end{tabular} \\\\", "\\midrule"]
-
-    def n3cell(r):
-        if r is None:
-            return "--"
-        x = f"{r['ws_mean']:.2f}".replace("-", "$-$")
-        return f"\\textbf{{{x}}}" if r["ws_ci"][0] > 0 else x
-
+    n3neg_ = [lab for lab, inc, _g in rob if not isinstance(inc, str) and inc.get("N3") is not None and inc["N3"]["ws_ci"][0] <= 0]
+    assert len(n3neg_) == 1 and "inimal" in n3neg_[0] and all(r["N3"]["ws_ci"][0] > 0 for _, r in variants), \
+        f"Table 2 caption: only the minimal pipeline's LR row has an N3 CI reaching zero: {n3neg_}"
+    # ---- display plan (draft 25): every row whose REM CI lies above zero is printed individually; the other rows of a
+    # group collapse into one range row (min to max over its n rows; k/n inside the margin). The specification
+    # envelope above is computed from rob itself, so nSpec, nSpecRemDagger etc. do not depend on this plan.
+    inside_ = lambda r: r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"]
+    pos_ = lambda r: r["REM"]["ws_ci"][0] > 0
     f3s = lambda v: f"{v:.3f}".replace("-", "$-$")
-    prev = None
-    for i, (label, inc, g) in enumerate(rob):
-        if prev is not None and (g != prev or i == 1 or (isinstance(inc, str) and inc == "RANGE")
-                                 or label.startswith("$+$ 30--300")):
-            out.append("\\midrule")
-        prev = g
-        if isinstance(inc, str) and inc == "RANGE":
-            n3 = [r["N3"]["ws_mean"] for _, r in variants]; rm = [r["REM"]["ws_mean"] for _, r in variants]
-            all_n3_pos = all(r["N3"]["ws_ci"][0] > 0 for _, r in variants)
-            all_dag = all(r["REM"]["ws_upper95"] < ma["delta"] and tbound(r["REM"]) < ma["delta"] for _, r in variants)
-            all_ctr = all(ctr(r)[0] == ctr(r)[1] for _, r in variants)
-            assert all_dag and all_ctr and all_n3_pos, "range row: every variant daggered, N3 CI > 0, N3>REM in all subjects"
-            n3txt = f"\\textbf{{{min(n3):.2f}--{max(n3):.2f}}}"
-            out.append(f"{label} & {n3txt} & {f3s(min(rm))} to {f3s(max(rm))}$^\\dagger$ & all \\\\")
-            M["varNthreeMin"], M["varNthreeMax"], M["varREMmin"], M["varREMmax"] = sg(min(n3)), sg(max(n3)), sg(min(rm)), sg(max(rm))
-            continue
+    f2s = lambda v: f"{v:.2f}".replace("-", "$-$")
+    i_range = next(i for i, (lab, inc, g) in enumerate(rob) if isinstance(inc, str) and inc == "RANGE")
+    i_strong0 = next(i for i, (lab, inc, g) in enumerate(rob) if g == "strong")
+    i_learned0 = next(i for i, (lab, inc, g) in enumerate(rob) if g == "learned")
+    i_own0 = next(i for i, (lab, inc, g) in enumerate(rob) if g == "own")
+    idx_est, idx_blocks = list(range(1, i_range)), list(range(i_range + 1, i_strong0))
+    idx_strong = list(range(i_strong0, i_learned0))
+    assert rob[0][0].startswith("Main") and len(idx_est) == 5 and len(idx_blocks) == 12 and len(idx_strong) == 6, (len(idx_est), len(idx_blocks), len(idx_strong))
+
+    def disp_label(i):
+        lab = rob[i][0]
+        if not lab.startswith("\\quad"):
+            return lab
+        j = i
+        while rob[j][0].startswith("\\quad"):
+            j -= 1
+        parent = rob[j][0]
+        short = ("subcortex" if "subcortex" in parent else "all blocks" if "All BOLD" in parent else
+                 "stronger" if parent.startswith("Stronger non") else "stronger $+$ eyes" if "eye" in parent else parent)
+        tail = lab.replace(chr(92) + "quad ", "").replace("boosted trees", "trees").replace("trees, nested-tuned", "tuned trees").replace("LR, nested-tuned", "tuned LR")
+        return f"\\quad {short}, {tail}"
+
+    def range_row(label, incs):
+        n3 = [r["N3"]["ws_mean"] for r in incs]; rm = [r["REM"]["ws_mean"] for r in incs]
+        n3txt = f"{f2s(min(n3))}--{f2s(max(n3))}"
+        remtxt = f"{f3s(min(rm))} to {f3s(max(rm))} ({sum(inside_(r) for r in incs)}/{len(incs)}$^\\dagger$)"
+        cs = [ctr(r) for r in incs]
+        ctxt = "all" if all(c[0] == c[1] for c in cs) else f"{min(c[0] for c in cs)}/{cs[0][1]}"
+        return f"{label} & {n3txt} & {remtxt} & {ctxt} \\\\"
+
+    def one_row(label, inc):
         c = ctr(inc)
-        out.append(f"{label} & {n3cell(inc.get('N3'))} & {cell(inc.get('REM'), dagger=True)} & "
-                   f"{'--' if c is None else f'{c[0]}/{c[1]}'} \\\\")
+        x = f"{inc['N3']['ws_mean']:.2f}".replace("-", "$-$")
+        n3txt = x
+        return f"{label} & {n3txt} & {cell(inc.get('REM'), dagger=True)} & {'--' if c is None else f'{c[0]}/{c[1]}'} \\\\"
+
+    def group_rows(label, idx):
+        others = [rob[i][1] for i in idx if not pos_(rob[i][1])]
+        rows_ = [range_row(f"{label} ({len(others)})", others)] if others else []
+        rows_ += [one_row(disp_label(i), rob[i][1]) for i in idx if pos_(rob[i][1])]
+        return rows_
+
+    def short_name(i):
+        return disp_label(i).replace("\\quad ", "").replace("subcortex, ", "subcortex ").replace("all blocks, ", "all-blocks ").replace("stronger, ", "stronger ").replace("$C$", "C").replace("LR, nested-tuned C", "nested-tuned LR").replace("Boosted trees, nested-tuned", "nested-tuned trees").replace("Boosted", "boosted").replace("Late", "late").replace("Stacked fusion (nested)", "stacking")
+    notes_out, notes_ctr = [], []
+    for gname, idx in (("other estimators", idx_est), ("added blocks", idx_blocks), ("stronger", idx_strong[:3]), ("stronger $+$ eyes", idx_strong[3:])):
+        others = [i for i in idx if not pos_(rob[i][1])]
+        o = [short_name(i) for i in others if not inside_(rob[i][1])]
+        notes_ctr += [f"{short_name(i)} ({ctr(rob[i][1])[0]}/{ctr(rob[i][1])[1]})" for i in others if ctr(rob[i][1])[0] < ctr(rob[i][1])[1]]
+        if o and len(o) == len(others) - 1 and gname == "other estimators":
+            o = ["all but " + [short_name(i) for i in others if inside_(rob[i][1])][0]]
+        if o:
+            notes_out.append(f"{gname}, {' and '.join([', '.join(o[:-1]), o[-1]] if len(o) > 1 else o)}")
+    M["tabRangeOut"], M["tabRangeCtr"] = "; ".join(notes_out), ", ".join(notes_ctr)
+    out = ["\\begin{table}[t]", "\\centering", "\\fontsize{7.5}{9}\\selectfont", "\\setlength{\\tabcolsep}{1.5pt}",
+           f"\\caption{{On the derivative, BOLD's N3 gain is at least {min(r['N3']['ws_mean'] for _, r in spec):.2f} with CI above zero in every specification, its REM gain negligible in {M['nSpecRemDagger']}. "
+           "Gain in within-subject AUC from adding BOLD to non-BOLD, mean [95\\% CI]; the "
+           f"{len(spec)} specifications are its rows, the variant row holding {len(variants)}, the nested-tuning row 2 and the stronger $+$ eyes row 3; numbers in parentheses count features (after $^\\ddagger$, variants). Every $\\Delta_\\mathrm{{N3}}$ CI lies above zero (lower bounds $\\ge${{TABLO}}). Boldface: REM bootstrap CI above zero. $^\\dagger$: negligible, both one-sided upper bounds below "
+           f"$\\delta={ma['delta']:.2f}$; with boldface, a positive gain below $\\delta$. Indented rows: the block or baseline above with another "
+           "estimator. N3$>$REM: subjects whose N3 gain exceeds their REM gain. $^\\ddagger$Global signal (2), WM/CSF or slow "
+           "physiology regressed (2), detrending, 6\\,s label shift, within-run z, night time (2), cross-night training, "
+           "epoch or run selection (5), lagged physiology, image motion, no somatomotor network, $C$ (3).}",
+           "\\label{tab:robust}", "\\begin{tabular}{@{}lccc@{}}", "\\toprule",
+           "Specification & $\\Delta_\\mathrm{N3}$ & $\\Delta_\\mathrm{REM}$ [95\\% CI] & \\begin{tabular}{@{}c@{}}N3$>$\\\\REM\\end{tabular} \\\\", "\\midrule",
+           one_row("Planned (LR, early fusion)", rob[0][1]), "\\midrule"]
+    est_labels = {"Late fusion": "Late fusion", "Stacked fusion (nested)": "Stacking", "Boosted trees": "Boosted trees",
+                  "LR, nested-tuned $C$": "LR, tuned $C$", "Boosted trees, nested-tuned": "Boosted trees, tuned"}
+    # draft 35: the two nested-tuning rows share one range row (neither has a REM CI above zero; both N3>REM in all)
+    tune_ = [i for i in idx_est if "nested-tuned" in rob[i][0]]
+    assert len(tune_) == 2 and not any(pos_(rob[i][1]) for i in tune_) and all(ctr(rob[i][1])[0] == ctr(rob[i][1])[1] for i in tune_)
+    import os
+    COMPACT = os.environ.get("T2COMPACT") == "1"      # draft 38 A/B: compact Table 2 (rows with a REM CI above zero stay)
+    if COMPACT:
+        assert not any(pos_(rob[i][1]) for i in idx_est)
+        out += [range_row(f"{len(idx_est)} other estimators", [rob[i][1] for i in idx_est])]
+    else:
+        out += [one_row(est_labels.get(rob[i][0], rob[i][0]), rob[i][1]) for i in idx_est if i not in tune_]
+        out += [range_row("Nested tuning, LR \\& trees", [rob[i][1] for i in tune_])]
+    assert all(inside_(r) for _, r in variants) and all(ctr(r)[0] == ctr(r)[1] for _, r in variants) and all(r["N3"]["ws_ci"][0] > 0 for _, r in variants), \
+        "variant row: every variant daggered, N3 CI > 0, N3>REM in all subjects"
+    n3 = [r["N3"]["ws_mean"] for _, r in variants]; rm = [r["REM"]["ws_mean"] for _, r in variants]
+    out.append(f"{len(variants)} variants$^\\ddagger$ & {f2s(min(n3))}--{f2s(max(n3))} & "
+               f"{f3s(min(rm))} to {f3s(max(rm))}, all$^\\dagger$ & all \\\\")
+    M["varNthreeMin"], M["varNthreeMax"], M["varREMmin"], M["varREMmax"] = sg(min(n3)), sg(max(n3)), sg(min(rm)), sg(max(rm))
+    blk_labels = {"\\quad LR, nested-tuned": "\\quad LR, tuned $C$", "\\quad trees, nested-tuned": "\\quad boosted trees, tuned"}
+    def flat_label(i):
+        lab = rob[i][0]
+        if not lab.startswith("\\quad"):
+            return lab.replace(", early", ", early fusion").replace("$+$ ", "")
+        j = i
+        while rob[j][0].startswith("\\quad"):
+            j -= 1
+        parent = rob[j][0].split(",")[0].replace("$+$ ", "")
+        parent = (parent[0].upper() + parent[1:]).replace("All BOLD blocks", "All blocks")
+        return parent + ", " + blk_labels.get(lab, lab).replace("\\quad ", "").replace("boosted trees, tuned", "tuned trees")
+    if COMPACT:
+        bpos = [i for i in idx_blocks if pos_(rob[i][1])]
+        out += ["\\midrule"] + [one_row(flat_label(i), rob[i][1]) for i in bpos]
+        out += [range_row(f"{len(idx_blocks) - len(bpos)} other added-block rows", [rob[i][1] for i in idx_blocks if i not in bpos])]
+    else:
+        out += ["\\midrule"] + [one_row(blk_labels.get(rob[i][0], rob[i][0]), rob[i][1]) for i in idx_blocks]
+    # draft 33: the stronger-baseline groups collapse like the others (rows with a REM CI above zero stay individual);
+    # the minimal pipeline's rows leave the table (outside the specifications; the text gives its trees REM gain)
+    assert not [i for i in idx_strong[3:] if pos_(rob[i][1])]
+    assert all(ctr(rob[i][1])[0] == ctr(rob[i][1])[1] for i in idx_strong[3:]), "the collapsed stronger + eyes row: N3>REM in all subjects"
+    if COMPACT:
+        spos = [i for i in idx_strong[:3] if pos_(rob[i][1])]
+        out += ["\\midrule"] + [one_row("Stronger baseline, boosted trees", rob[i][1]) for i in spos]
+        out += [range_row("Stronger baseline, LR \\& BiGRU", [rob[i][1] for i in idx_strong[:3] if i not in spos])]
+    else:
+        out += ["\\midrule"] + [one_row(rob[i][0], rob[i][1]) for i in idx_strong[:3]]
+    out += [range_row("Stronger $+$ eyes, all three", [rob[i][1] for i in idx_strong[3:]])]
+    out += ["\\midrule"] + [one_row(rob[i][0], rob[i][1]) for i in range(i_learned0, i_own0)]
+    M["tabNthreeLoMin"] = f"{min([rob[i][1]['N3']['ws_ci'][0] for i in range(i_own0) if not isinstance(rob[i][1], str)] + [r['N3']['ws_ci'][0] for _, r in variants]):.2f}"
+    assert float(M["tabNthreeLoMin"]) > 0, "Table 2 caption: every derivative N3 CI lies above zero"
+    out = [l.replace("{TABLO}", M["tabNthreeLoMin"]) for l in out]
+    if COMPACT:
+        out = [l.replace(f"the variant row holding {len(variants)}, the nested-tuning row 2 and the stronger $+$ eyes row 3",
+                         "range rows hold their leading number of specifications (stronger $+$ eyes: 3), with $k/n^\\dagger$ of them negligible and the lowest N3$>$REM count")
+                .replace("Indented rows: the block or baseline above with another estimator. ", "") for l in out]
     out += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
+    M["nTabRows"] = str(sum(1 for l in out if l.endswith("\\\\") and "&" in l) - 1)
     (PAPER / "tab_robust.tex").write_text("\n".join(out) + "\n")
     # abstract: "envNthreeMin to spHgbNthree against stronger cardiorespiratory and eye baselines"
     num = lambda k: float(M[k].replace("$-$", "-"))
     strong = [num(k) for k in ("spLrNthree", "spHgbNthree", "spGruNthree", "cvLrNthree", "cvHgbNthree", "cvGruNthree")]
     assert min(strong) == num("envNthreeMin") and max(strong) == num("spHgbNthree"), strong
+    table3(M, ma)
     with open(PAPER / "numbers.tex", "w") as f:
         f.write("% generated by 26_paper_numbers_v2.py -- do not edit\n")
         for k, v in M.items():

@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\fontsize{7.5}{9}\selectfont
+\setlength{\tabcolsep}{2pt}
+\caption{Our pipelines keep at most about half of the derivative's N3 gain. Planned model; gain from adding the stated BOLD features to non-BOLD (REM: 95\% CI); AUC$_\mathrm{N3}$: that BOLD set alone; boldface: bootstrap CI above zero.}
+\label{tab:secondary}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Comparison & AUC$_\mathrm{N3}$ & $\Delta_\mathrm{N3}$ & $\Delta_\mathrm{REM}$ [95\% CI] \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Rebuilt pipeline, before and after regression (12,694 epochs)}} \\
+Rebuilt, affine, before regression & 0.66 & $-$0.007 & $-$0.058 [$-$0.089,\,$-$0.022] \\
+Rebuilt, affine & 0.76 & \textbf{+0.044} & $-$0.045 [$-$0.079,\,$-$0.010] \\
+Rebuilt, nonlinear, GM & 0.75 & \textbf{+0.030} & +0.001 [$-$0.027,\,+0.032] \\
+Derivative, 84 parcels & 0.85 & \textbf{+0.085} & $-$0.020 [$-$0.038,\,$-$0.005] \\
+\bottomrule
+\end{tabular}
+\end{table}

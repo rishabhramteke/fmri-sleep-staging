@@ -35,10 +35,10 @@ CODE = ["03_fetch_sleep_scoring.py", "06_preprocess.py", "06b_raw_v2.py", "07_fe
         "42_round2_checks.py", "43_eog_phasic.py", "44_tone_proxy.py", "45_round4_checks.py", "46_panel_checks.py",
         "47_panel_checks2.py", "48_panel_checks3.py", "49_preproc_ladder.py", "50_tempered_hmm.py", "51_stager_upgrades.py",
         "52_cross_dataset.py", "53_learned_encoder.py", "53b_encoder_checks.py", "54_ssl_pretrain.py", "55_cross_site.py",
-        "make_release.py"]
-PAPER = ["numbers.tex", "tab_ladder.tex", "tab_robust.tex", "figures/fig_gain_v2.pdf"]
+        "56_combined_controls.py", "57_paired_pipeline_diff.py", "make_release.py"]
+PAPER = ["numbers.tex", "tab_ladder.tex", "tab_robust.tex", "tab_secondary.tex", "tab_allcontrols.tex", "figures/fig_gain_v2.pdf"]
 
-README = """# Whole-night fMRI sleep staging: BOLD adds far more to deep sleep than to REM
+README = """# What BOLD adds to whole-night fMRI sleep staging
 
 Code, results, per-epoch predictions and the dated analysis log for the ISBI 2027 submission of the same title
 (Rishabh Ramteke, independent researcher). Licence: MIT (code); the data are not redistributed here. Data: OpenNeuro ds005127 (v2.0.2,
@@ -52,7 +52,9 @@ Run order (each script documents its inputs and outputs in its docstring):
               -> 23 (realignment, FD) -> 21 (elapsed time) -> 19, 19b (atlases to TT_N27) -> 20, 20b (derivative
               stream) -> 22 --source raw|afni, 22b, 22c, 22d -> 06b, 22 --source rv2
   analysis    24 --source afni|raw -> 28 29 30 30b 31 32 33 34 35 36 36b(--block subc|mw|lvl|max) 36c 36d
-              -> 37 38 39 40 41 -> 42 43 44 45 46 47 48 (review checks)
+              -> 37 38 39 40 41 -> 42 43 44 45 46 47 48 (review checks) -> 49 (preprocessing ladder)
+              -> 50 51 52 53 53b 54 55 (stager upgrades, learned encoder, self-supervised embedding, cross-site)
+              -> 56 (all controls at once) -> 57 (paired pipeline differences)
   paper       25b -> 25 (figure) -> 26 (numbers.tex, both tables) -> 27 (independent re-derivation from the
               saved predictions, must print ALL PASS; its last check reads the manuscript, which is not included)
 
@@ -91,6 +93,10 @@ def redact_log(text):
     """The public copy of next_steps.md: no local paths, no unrelated analysis, no internal review scores."""
     out = []
     for line in text.splitlines():
+        if re.search(r"\breview_r\d|Reviews of draft|^Reviews? (of|launched)|[Ff]resh reviews|A/B (result|key)|explain-back"
+                     r"|\bN\d/S\d/C\d|\bN3 S3 C\d|^  (full|compact) Table 2 \((X|Y)\)|Compacting did not help|review rounds?"
+                     r"|clarity [1-5]|clarity stays at|clarity >= \b|weak accept|cold reviews?|\breviewers?\b.*\b(score|flag)", line):
+            continue
         if re.search(r"personality|Fallback after|^User decisions:|^dated log public; will read|Reviews so far|^Loop stopped|^licence; \$200|^Open user decisions|^Open \(user's"
                      r"|^dropped\), EDAS|^verifiable\), EDAS|^309", line):
             continue

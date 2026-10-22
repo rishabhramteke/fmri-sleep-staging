@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\fontsize{7.5}{9}\selectfont
+\setlength{\tabcolsep}{2.2pt}
+\caption{All controls: N3 gains need the derivative or, with trees or BiGRU, our nuisance regression; REM gains stay small. Gain over the stronger $+$ eyes baseline (122 features) on the 12,509 epochs all BOLD sets cover (N3: 11 subjects). 221: main features (row 1: Table~\ref{tab:robust}'s stronger $+$ eyes rows, other epochs); 84: shared parcels' amplitude. Baseline N3 AUC: 0.84 (LR), 0.83 (trees), 0.91 (BiGRU). Bold: bootstrap CI above zero.}
+\label{tab:allcontrols}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+ & \multicolumn{3}{c}{$\Delta_\mathrm{N3}$} & \multicolumn{3}{c}{$\Delta_\mathrm{REM}$} \\
+\cmidrule(lr){2-4}\cmidrule(l){5-7}
+BOLD features & LR & trees & BiGRU & LR & trees & BiGRU \\
+\midrule
+Derivative (221) & \textbf{+0.083} & \textbf{+0.088} & \textbf{+0.055} & $-$0.012 & \textbf{+0.015} & $-$0.039 \\
+Derivative (84) & \textbf{+0.046} & \textbf{+0.052} & \textbf{+0.035} & $-$0.012 & +0.008 & $-$0.039 \\
+Rebuilt, affine (84) & +0.019 & \textbf{+0.024} & \textbf{+0.036} & $-$0.031 & +0.005 & $-$0.034 \\
+Rebuilt, nonlinear, GM (84) & +0.009 & \textbf{+0.026} & \textbf{+0.027} & $-$0.007 & +0.010 & $-$0.015 \\
+Minimal (84) & +0.000 & +0.012 & +0.003 & $-$0.037 & +0.010 & $-$0.033 \\
+\bottomrule
+\end{tabular}
+\end{table}

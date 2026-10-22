@@ -1,48 +1,41 @@
 \begin{table}[t]
 \centering
-\scriptsize
-\setlength{\tabcolsep}{2.4pt}
-\caption{AUC gain from adding BOLD to non-BOLD, mean [95\% subject-bootstrap CI]. Bold: CI above zero (bold $\Delta_\mathrm{N3}$: lower bounds 0.02--0.15). $^\dagger$: both one-sided 95\% upper bounds (bootstrap, $t$) below $\delta=0.03$. N3$>$REM: subjects with the larger N3 gain. Above the last two rows: the 47 specifications. $^\ddagger$Global signal regressed/added, aCompCor, $+$6\,s, within-run z, slow physiology regressed, detrending, image-based motion, night fraction/index, cross-night training, uncensored, best-aligned/non-drifting runs, awakenings removed, lagged physiology, no somatomotor, $C$ 0.01--10.}
+\fontsize{7.5}{9}\selectfont
+\setlength{\tabcolsep}{1.5pt}
+\caption{On the derivative, BOLD's N3 gain is at least 0.06 with CI above zero in every specification, its REM gain negligible in 34. Gain in within-subject AUC from adding BOLD to non-BOLD, mean [95\% CI]; the 47 specifications are its rows, the variant row holding 21, the nested-tuning row 2 and the stronger $+$ eyes row 3; numbers in parentheses count features (after $^\ddagger$, variants). Every $\Delta_\mathrm{N3}$ CI lies above zero (lower bounds $\ge$0.02). Boldface: REM bootstrap CI above zero. $^\dagger$: negligible, both one-sided upper bounds below $\delta=0.03$; with boldface, a positive gain below $\delta$. Indented rows: the block or baseline above with another estimator. N3$>$REM: subjects whose N3 gain exceeds their REM gain. $^\ddagger$Global signal (2), WM/CSF or slow physiology regressed (2), detrending, 6\,s label shift, within-run z, night time (2), cross-night training, epoch or run selection (5), lagged physiology, image motion, no somatomotor network, $C$ (3).}
 \label{tab:robust}
 \begin{tabular}{@{}lccc@{}}
 \toprule
-Variant & $\Delta_\mathrm{N3}$ & $\Delta_\mathrm{REM}$ & \begin{tabular}{@{}c@{}}N3$>$\\REM\end{tabular} \\
+Specification & $\Delta_\mathrm{N3}$ & $\Delta_\mathrm{REM}$ [95\% CI] & \begin{tabular}{@{}c@{}}N3$>$\\REM\end{tabular} \\
 \midrule
-Main (LR, early fusion) & \textbf{0.14} & $-$0.011 [$-$0.033, 0.012]$^\dagger$ & 10/10 \\
+Planned (LR, early fusion) & 0.14 & $-$0.011 [$-$0.033,\,0.012]$^\dagger$ & 10/10 \\
 \midrule
-Late fusion & \textbf{0.14} & 0.014 [$-$0.011, 0.041] & 10/10 \\
-Stacked fusion (nested) & \textbf{0.16} & 0.010 [$-$0.007, 0.029]$^\dagger$ & 10/10 \\
-Boosted trees & \textbf{0.14} & 0.016 [$-$0.001, 0.032] & 10/10 \\
-LR, nested-tuned $C$ & \textbf{0.15} & 0.008 [$-$0.021, 0.039] & 10/10 \\
-Boosted trees, nested-tuned & \textbf{0.14} & 0.010 [$-$0.012, 0.035] & 10/10 \\
+Late fusion & 0.14 & 0.014 [$-$0.011,\,0.041] & 10/10 \\
+Stacking & 0.16 & 0.010 [$-$0.007,\,0.029]$^\dagger$ & 10/10 \\
+Boosted trees & 0.14 & 0.016 [$-$0.001,\,0.032] & 10/10 \\
+Nested tuning, LR \& trees & 0.14--0.15 & 0.008 to 0.010 (0/2$^\dagger$) & all \\
+21 variants$^\ddagger$ & 0.11--0.16 & $-$0.028 to 0.001, all$^\dagger$ & all \\
 \midrule
-21 variants$^\ddagger$ & \textbf{0.11--0.16} & $-$0.028 to 0.001$^\dagger$ & all \\
+$+$ 30--300\,s context (61) & 0.16 & $-$0.022 [$-$0.049,\,0.007]$^\dagger$ & 10/10 \\
+$+$ subcortex (50), early & 0.14 & $-$0.004 [$-$0.034,\,0.028]$^\dagger$ & 10/10 \\
+\quad late fusion & 0.15 & 0.032 [$-$0.004,\,0.069] & 10/10 \\
+\quad stacked & 0.17 & \textbf{0.029} [0.005,\,0.056] & 10/10 \\
+\quad boosted trees & 0.15 & \textbf{0.041} [0.019,\,0.066] & 9/10 \\
+$+$ regional level (200), stacked & 0.16 & 0.010 [$-$0.005,\,0.028]$^\dagger$ & 10/10 \\
+All BOLD blocks (557), early & 0.15 & $-$0.031 [$-$0.069,\,0.005]$^\dagger$ & 10/10 \\
+\quad late fusion & 0.17 & 0.025 [$-$0.013,\,0.061] & 10/10 \\
+\quad stacked & 0.19 & \textbf{0.026} [0.003,\,0.050] & 10/10 \\
+\quad boosted trees & 0.18 & \textbf{0.040} [0.017,\,0.066] & 10/10 \\
+\quad LR, tuned $C$ & 0.18 & 0.022 [$-$0.018,\,0.061] & 9/10 \\
+\quad boosted trees, tuned & 0.17 & \textbf{0.035} [0.006,\,0.073] & 10/10 \\
 \midrule
-$+$ 30--300\,s context (61) & \textbf{0.16} & $-$0.022 [$-$0.049, 0.007]$^\dagger$ & 10/10 \\
-$+$ subcortex (50), early & \textbf{0.14} & $-$0.004 [$-$0.034, 0.028]$^\dagger$ & 10/10 \\
-\quad late fusion & \textbf{0.15} & 0.032 [$-$0.004, 0.069] & 10/10 \\
-\quad stacked & \textbf{0.17} & \textbf{0.029} [0.005, 0.056] & 10/10 \\
-\quad boosted trees & \textbf{0.15} & \textbf{0.041} [0.019, 0.066] & 9/10 \\
-$+$ regional level (200), stacked & \textbf{0.16} & 0.010 [$-$0.005, 0.028]$^\dagger$ & 10/10 \\
-All BOLD blocks (557), early & \textbf{0.15} & $-$0.031 [$-$0.069, 0.005]$^\dagger$ & 10/10 \\
-\quad late fusion & \textbf{0.17} & 0.025 [$-$0.013, 0.061] & 10/10 \\
-\quad stacked & \textbf{0.19} & \textbf{0.026} [0.003, 0.050] & 10/10 \\
-\quad boosted trees & \textbf{0.18} & \textbf{0.040} [0.017, 0.066] & 10/10 \\
-\quad LR, nested-tuned & \textbf{0.18} & 0.022 [$-$0.018, 0.061] & 9/10 \\
-\quad trees, nested-tuned & \textbf{0.17} & \textbf{0.035} [0.006, 0.073] & 10/10 \\
+Stronger baseline, LR & 0.12 & $-$0.007 [$-$0.027,\,0.014]$^\dagger$ & 10/10 \\
+\quad boosted trees & 0.13 & \textbf{0.015} [0.006,\,0.025]$^\dagger$ & 10/10 \\
+\quad BiGRU & 0.06 & $-$0.010 [$-$0.041,\,0.018]$^\dagger$ & 8/10 \\
+Stronger $+$ eyes, all three & 0.07--0.08 & $-$0.029 to 0.004 (3/3$^\dagger$) & all \\
 \midrule
-Stronger non-BOLD, LR & \textbf{0.12} & $-$0.007 [$-$0.027, 0.014]$^\dagger$ & 10/10 \\
-\quad boosted trees & \textbf{0.13} & \textbf{0.015} [0.006, 0.025]$^\dagger$ & 10/10 \\
-\quad BiGRU & \textbf{0.06} & $-$0.010 [$-$0.041, 0.018]$^\dagger$ & 8/10 \\
-Stronger $+$ eye block, LR & \textbf{0.08} & $-$0.011 [$-$0.027, 0.004]$^\dagger$ & 10/10 \\
-\quad boosted trees & \textbf{0.08} & 0.004 [$-$0.005, 0.016]$^\dagger$ & 10/10 \\
-\quad BiGRU & \textbf{0.07} & $-$0.029 [$-$0.061, 0.003]$^\dagger$ & 10/10 \\
-\midrule
-Temporal CNN encoder, joint network & \textbf{0.15} & \textbf{0.048} [0.028, 0.070] & 10/10 \\
-Self-supervised embedding, LR & \textbf{0.15} & $-$0.004 [$-$0.021, 0.013]$^\dagger$ & 10/10 \\
-\midrule
-Minimal pipeline, 16 subjects & 0.04 & $-$0.030 [$-$0.069, 0.005]$^\dagger$ & 10/10 \\
-\quad boosted trees & \textbf{0.05} & \textbf{0.024} [0.007, 0.044] & 8/10 \\
+CNN encoder & 0.15 & \textbf{0.048} [0.028,\,0.070] & 10/10 \\
+Self-supervised embedding & 0.15 & $-$0.004 [$-$0.021,\,0.013]$^\dagger$ & 10/10 \\
 \bottomrule
 \end{tabular}
 \end{table}
